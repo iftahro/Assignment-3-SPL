@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
     private final Map<Integer, ConnectionHandler<T>> connectionsMap = new ConcurrentHashMap<>();
-    private final Map<String, Integer[]> gamesMap = new ConcurrentHashMap<>();
+    private final Map<String, Map<Integer,Integer>> gamesMap = new ConcurrentHashMap<>();
 
     @Override
     public boolean send(int connectionId, T msg) {
@@ -20,10 +20,14 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-        for (int tempId : gamesMap.get(channel))
-        {
-            //todo return val
-            send(tempId,msg);
+        Map<Integer,Integer> tempMap = gamesMap.get(channel);
+        for (Map.Entry<Integer, Integer> entry : tempMap.entrySet()) {
+            int connectId = entry.getKey();
+            int gameId = entry.getValue();
+            String tempMsg = (String) msg;
+            String finalMsg = tempMsg.replaceFirst("MESSAGE\n",
+                    "MESSAGE\nsubscription:" + gameId + "\n");
+            send(connectId,(T) finalMsg);
         }
     }
 
@@ -43,6 +47,18 @@ public class ConnectionsImpl<T> implements Connections<T> {
         connectionsMap.put(counter, connectionHandler);
         counter++;
         return counter -1;
+    }
+
+    public boolean gameExist(String gameName){
+        return gamesMap.containsKey(gameName);
+    }
+
+    public boolean playerSubToGAme(String gameName, int id )
+    {
+        if (gameExist(gameName)){
+            return gamesMap.get(gameName).containsKey(id);
+        }
+        return false;
     }
 
     @Override

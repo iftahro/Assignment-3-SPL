@@ -8,14 +8,12 @@ import java.util.List;
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
     private int connectionId;
     private Connections<String> connections;
-    private List mySubGames;
     private boolean shouldTerminate = false;
 
     @Override
     public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
-        this.mySubGames = new ArrayList<>();
     }
 
     @Override
@@ -29,7 +27,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             handleConnect(lines);
         } else if (command.equals("SEND")) {
             handleSend(lines);
-        } else if (command.equals("subscirbe")) {
+        } else if (command.equals("SUBSCRIBE")) {
             
         }
         checkAndSendReceipt(lines);
@@ -38,6 +36,15 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             shouldTerminate = true;
         }
     }
+    private void handleSubscribe(String[] lines){
+        String destination = null;
+        for (String line : lines) {
+            if (line.startsWith("destination:")) {
+                destination = line.substring(12).trim();
+                break;
+            }}
+    }
+
     private void handleSend(String[] lines) {
         String destination = null;
         for (String line : lines) {
@@ -45,14 +52,15 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
                 destination = line.substring(12).trim();
                 break;
             }
-            if (mySubGames.contains(destination))
+        }
+            if (connections.playerSubToGAme(destination, connectionId))
             {
                 StringBuilder body = new StringBuilder();
                 boolean isBody = false;
-                for (String line : lines) {
+                for (String tempLine : lines) {
                     if (isBody) {
-                        body.append(line).append("\n");
-                    } else if (line.isEmpty()) {
+                        body.append(tempLine).append("\n");
+                    } else if (tempLine.isEmpty()) {
                         isBody = true;
                     }
                 }
@@ -65,7 +73,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
 
                 connections.send(destination, messageFrame);
             }
-        }
+
 
     }
     private void handleConnect(String[] lines) {

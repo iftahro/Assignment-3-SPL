@@ -13,4 +13,8 @@ public interface Connections<T> {
     int addHandler(ConnectionHandler<T> connectionHandler);
 
     ConnectionHandler<T> getHandler(int id);
+
+    boolean gameExist(String gameName);
+
+    boolean playerSubToGAme(String gameName, int id );
 }
