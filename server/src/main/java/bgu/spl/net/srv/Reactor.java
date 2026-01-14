@@ -2,6 +2,8 @@ package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
+import bgu.spl.net.api.StompMessagingProtocol;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedSelectorException;
@@ -15,20 +17,20 @@ import java.util.function.Supplier;
 public class Reactor<T> implements Server<T> {
 
     private final int port;
-    private final Supplier<MessagingProtocol<T>> protocolFactory;
+    private final Supplier<StompMessagingProtocol<T>> protocolFactory;
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private Selector selector;
-
+    private final Connections<T> connections;
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
 
     public Reactor(
             int numThreads,
             int port,
-            Supplier<MessagingProtocol<T>> protocolFactory,
+            Supplier<StompMessagingProtocol<T>> protocolFactory,
             Supplier<MessageEncoderDecoder<T>> readerFactory) {
-
+        connections = new ConnectionsImpl<>();
         this.pool = new ActorThreadPool(numThreads);
         this.port = port;
         this.protocolFactory = protocolFactory;
@@ -95,22 +97,28 @@ public class Reactor<T> implements Server<T> {
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
+        StompMessagingProtocol<T> stompMessagingProtocol = protocolFactory.get();
         final NonBlockingConnectionHandler<T> handler = new NonBlockingConnectionHandler<>(
                 readerFactory.get(),
-                protocolFactory.get(),
+                stompMessagingProtocol,
                 clientChan,
                 this);
-        clientChan.register(selector, SelectionKey.OP_READ, handler);
+        int id = connections.addHandler(handler);
+        stompMessagingProtocol.start(id, connections);
+        clientChan.register(selector, SelectionKey.OP_READ, id);
     }
 
     private void handleReadWrite(SelectionKey key) {
         @SuppressWarnings("unchecked")
-        NonBlockingConnectionHandler<T> handler = (NonBlockingConnectionHandler<T>) key.attachment();
+        int id = (int) key.attachment();
+        NonBlockingConnectionHandler<T> handler = (NonBlockingConnectionHandler<T>) connections.getHandler(id);
 
         if (key.isReadable()) {
             Runnable task = handler.continueRead();
             if (task != null) {
                 pool.submit(handler, task);
+            } else {
+                connections.disconnect(id);
             }
         }
 
