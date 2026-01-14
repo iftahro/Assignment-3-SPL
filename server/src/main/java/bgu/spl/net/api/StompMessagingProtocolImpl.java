@@ -2,15 +2,20 @@ package bgu.spl.net.api;
 
 import bgu.spl.net.srv.Connections;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
     private int connectionId;
     private Connections<String> connections;
+    private List mySubGames;
     private boolean shouldTerminate = false;
 
     @Override
     public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
+        this.mySubGames = new ArrayList<>();
     }
 
     @Override
@@ -19,14 +24,50 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         if (lines.length == 0) {
             return;
         }
-
         String command = lines[0].trim();
-
         if (command.equals("CONNECT")) {
             handleConnect(lines);
+        } else if (command.equals("SEND")) {
+            handleSend(lines);
+        } else if (command.equals("subscirbe")) {
+            
+        }
+        checkAndSendReceipt(lines);
+        if (command.equals("DISCONNECT")) {
+            connections.disconnect(connectionId);
+            shouldTerminate = true;
         }
     }
+    private void handleSend(String[] lines) {
+        String destination = null;
+        for (String line : lines) {
+            if (line.startsWith("destination:")) {
+                destination = line.substring(12).trim();
+                break;
+            }
+            if (mySubGames.contains(destination))
+            {
+                StringBuilder body = new StringBuilder();
+                boolean isBody = false;
+                for (String line : lines) {
+                    if (isBody) {
+                        body.append(line).append("\n");
+                    } else if (line.isEmpty()) {
+                        isBody = true;
+                    }
+                }
+                String messageId = connectionId + "_" + System.currentTimeMillis();
+                String messageFrame = "MESSAGE\n" +
+                        "destination:" + destination + "\n" +
+                        "message-id:" + messageId + "\n" +
+                        "\n" +
+                        body.toString();
 
+                connections.send(destination, messageFrame);
+            }
+        }
+
+    }
     private void handleConnect(String[] lines) {
         String login = null;
         String passcode = null;
@@ -48,6 +89,18 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
             sendError("Missing login or passcode");
         }
     }
+    private void checkAndSendReceipt(String[] lines) {
+        for (String line : lines) {
+            if (line.startsWith("receipt:")) {
+                String receiptId = line.substring(8).trim();
+                String receiptFrame = "RECEIPT\n" +
+                        "receipt-id:" + receiptId + "\n" +
+                        "\n";
+                connections.send(connectionId, receiptFrame);
+                break;
+            }
+        }
+    }
 
     private void sendError(String errorMsg) {
         // todo write errors.
@@ -57,7 +110,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<String
         connections.disconnect(connectionId);
         shouldTerminate = true;
     }
-
+    @Override
+    public void connectionTerminated() {
+        connections.disconnect(connectionId);
+    }
     @Override
     public boolean shouldTerminate() {
         // todo check when needed.

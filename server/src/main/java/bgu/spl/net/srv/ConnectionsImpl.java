@@ -1,12 +1,14 @@
 package bgu.spl.net.srv;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
     private final Map<Integer, ConnectionHandler<T>> connectionsMap = new ConcurrentHashMap<>();
+    private final Map<String, Integer[]> gamesMap = new ConcurrentHashMap<>();
 
     @Override
     public boolean send(int connectionId, T msg) {
@@ -18,7 +20,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-
+        for (int tempId : gamesMap.get(channel))
+        {
+            //todo return val
+            send(tempId,msg);
+        }
     }
 
     @Override

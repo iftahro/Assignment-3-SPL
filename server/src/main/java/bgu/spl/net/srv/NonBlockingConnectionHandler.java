@@ -59,6 +59,11 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
             };
         } else {
             releaseBuffer(buf);
+            if (protocol != null) {
+                protocol.connectionTerminated();}
+            else {
+                close();
+            }
             return null;
         }
 
