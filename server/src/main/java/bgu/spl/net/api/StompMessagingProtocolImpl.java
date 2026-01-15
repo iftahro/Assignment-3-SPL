@@ -39,7 +39,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
                 handleUnsubscribe(message);
                 break;
         }
-        checkAndSendReceipt(message);
+        if (!shouldTerminate) {
+            checkAndSendReceipt(message);
+        }
     }
     private void handleSubscribe(stompMessage msg) {
         String destination = msg.getHeader("destination");
@@ -47,6 +49,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
         if (destination == null || destination.isEmpty() ||
         sGameId == null || sGameId.isEmpty()) {
             sendError("Malformed SUBSCRIBE frame: missing destination or ID", msg);
+            return;
+        }
+        if (!sGameId.matches("\\d+")) {
+            sendError("Malformed SUBSCRIBE frame: ID must be a number", msg);
             return;
         }
         int gameId = Integer.parseInt(sGameId);
