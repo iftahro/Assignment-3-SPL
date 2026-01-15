@@ -1,7 +1,5 @@
 package bgu.spl.net.srv;
 
-import java.io.IOException;
-
 public interface Connections<T> {
 
     boolean send(int connectionId, T msg);
@@ -14,11 +12,9 @@ public interface Connections<T> {
 
     ConnectionHandler<T> getHandler(int id);
 
-    boolean gameExist(String gameName);
+    boolean isPlayerSubToGame(String gameName, int id );
 
-    boolean playerSubToGAme(String gameName, int id );
+    void subscribeToGame(String gameName, int userId, int gameId);
 
-    void SubscribeToGame(String gameName, int userId, int gameId);
-
-    void UnsubscribeFromGame(int userId, int subscriptionId);
+    void unsubscribeFromGame(int userId, int subscriptionId);
 }

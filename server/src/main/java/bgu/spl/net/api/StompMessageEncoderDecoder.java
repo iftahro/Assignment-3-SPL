@@ -3,12 +3,12 @@ package bgu.spl.net.api;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-public class StompMessageEncoderDecoder implements MessageEncoderDecoder<stompMessage> {
+public class StompMessageEncoderDecoder implements MessageEncoderDecoder<StompMessage> {
     private byte[] bytes = new byte[1024];
     private int len = 0;
 
     @Override
-    public stompMessage decodeNextByte(byte nextByte) {
+    public StompMessage decodeNextByte(byte nextByte) {
         if (nextByte == '\u0000') {
             return parseFrame(popString());
         }
@@ -16,10 +16,10 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<stompMe
         return null;
     }
 
-    private stompMessage parseFrame(String frameString) {
+    private StompMessage parseFrame(String frameString) {
         String[] lines = frameString.split("\n");
         if (lines.length == 0) return null;
-        stompMessage message = new stompMessage(lines[0].trim());
+        StompMessage message = new StompMessage(lines[0].trim());
         int i = 1;
         while (i < lines.length && !lines[i].trim().isEmpty()) {
             String line = lines[i];
@@ -42,7 +42,7 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<stompMe
     }
 
     @Override
-    public byte[] encode(stompMessage message) {
+    public byte[] encode(StompMessage message) {
         return (message.toString() + "\u0000").getBytes(StandardCharsets.UTF_8);
     }
 

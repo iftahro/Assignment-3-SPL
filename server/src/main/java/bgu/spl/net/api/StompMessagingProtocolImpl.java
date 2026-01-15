@@ -2,19 +2,19 @@ package bgu.spl.net.api;
 
 import bgu.spl.net.srv.Connections;
 
-public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompMessage> {
+public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompMessage> {
     private int connectionId;
-    private Connections<stompMessage> connections;
+    private Connections<StompMessage> connections;
     private boolean shouldTerminate = false;
 
     @Override
-    public void start(int connectionId, Connections<stompMessage> connections) {
+    public void start(int connectionId, Connections<StompMessage> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
     }
 
     @Override
-    public void process(stompMessage message) {
+    public void process(StompMessage message) {
         String command = message.getCommand();
 
         if (command == null || command.isEmpty()) {
@@ -43,52 +43,47 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
             checkAndSendReceipt(message);
         }
     }
-    private void handleSubscribe(stompMessage msg) {
+    private void handleSubscribe(StompMessage msg) {
         String destination = msg.getHeader("destination");
-        String sGameId = msg.getHeader("id");
+        String tempSubId = msg.getHeader("id");
         if (destination == null || destination.isEmpty() ||
-        sGameId == null || sGameId.isEmpty()) {
+        tempSubId == null || tempSubId.isEmpty()) {
             sendError("Malformed SUBSCRIBE frame: missing destination or ID", msg);
             return;
         }
-        if (!sGameId.matches("\\d+")) {
+        if (!tempSubId.matches("\\d+")) {
             sendError("Malformed SUBSCRIBE frame: ID must be a number", msg);
             return;
         }
-        int gameId = Integer.parseInt(sGameId);
-        connections.SubscribeToGame(destination,connectionId,gameId);
+        int subId = Integer.parseInt(tempSubId);
+        connections.subscribeToGame(destination,connectionId,subId);
     }
 
-    private void handleUnsubscribe(stompMessage msg) {
+    private void handleUnsubscribe(StompMessage msg) {
         String idStr = msg.getHeader("id");
-        if (idStr == null || idStr.isEmpty()) {
-            sendError("Malformed UNSUBSCRIBE frame: missing id header", msg);
-            return;
-        }
+        if (idStr == null || idStr.isEmpty()) {return;}
         int gameId = Integer.parseInt(idStr);
-            connections.UnsubscribeFromGame(connectionId, gameId);
+        connections.unsubscribeFromGame(connectionId, gameId);
     }
-    private void handleSend(stompMessage msg) {
+    private void handleSend(StompMessage msg) {
         String destination = msg.getHeader("destination");
         if (destination == null || destination.isEmpty()) {
             sendError("Malformed SEND frame: missing destination", msg);
             return;
         }
-        if (connections.playerSubToGAme(destination, connectionId)) {
-            stompMessage messageFrame = new stompMessage("MESSAGE");
-            messageFrame.addHeader("destination", destination);
-            messageFrame.addHeader("message-id", "msg_" + System.currentTimeMillis());
+        if (connections.isPlayerSubToGame(destination, connectionId)) {
+            StompMessage messageFrame = new StompMessage("MESSAGE");
             messageFrame.setBody(msg.getBody());
             connections.send(destination, messageFrame);
         } else {
             sendError("User not subscribed to channel " + destination, msg);
         }
     }
-    private void handleConnect(stompMessage msg) {
+    private void handleConnect(StompMessage msg) {
         String login = msg.getHeader("login");
         String passcode = msg.getHeader("passcode");
         if (login != null && passcode != null) {
-            stompMessage response = new stompMessage("CONNECTED");
+            StompMessage response = new StompMessage("CONNECTED");
             response.addHeader("version", "1.2");
             connections.send(connectionId, response);
         } else {
@@ -96,23 +91,23 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
         }
     }
 
-private void handleDisconnect(stompMessage message) {
+private void handleDisconnect(StompMessage message) {
     checkAndSendReceipt(message);
-    connections.disconnect(connectionId);
+    terminateConnection();
     shouldTerminate = true;
 }
 
-private void checkAndSendReceipt(stompMessage message) {
+private void checkAndSendReceipt(StompMessage message) {
     String receiptId = message.getHeader("receipt");
     if (receiptId != null) {
-        stompMessage receiptFrame = new stompMessage("RECEIPT");
+        StompMessage receiptFrame = new StompMessage("RECEIPT");
         receiptFrame.addHeader("receipt-id", receiptId);
         connections.send(connectionId, receiptFrame);
     }
 }
 
-private void sendError(String errorMsg, stompMessage originalMessage) {
-    stompMessage errorFrame = new stompMessage("ERROR");
+private void sendError(String errorMsg, StompMessage originalMessage) {
+    StompMessage errorFrame = new StompMessage("ERROR");
     errorFrame.addHeader("message", errorMsg);
     StringBuilder body = new StringBuilder();
     if (originalMessage != null) {
@@ -127,11 +122,11 @@ private void sendError(String errorMsg, stompMessage originalMessage) {
     }
     errorFrame.setBody(body.toString());
     connections.send(connectionId, errorFrame);
-    connections.disconnect(connectionId);
+    terminateConnection();
     shouldTerminate = true;
 }
     @Override
-    public void connectionTerminated() {
+    public void terminateConnection() {
         connections.disconnect(connectionId);
     }
     @Override

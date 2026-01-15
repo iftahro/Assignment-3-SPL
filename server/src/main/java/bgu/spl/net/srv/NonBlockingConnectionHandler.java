@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.IOException;
@@ -59,8 +58,9 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
             };
         } else {
             releaseBuffer(buf);
+            //todo to check if needed here
             if (protocol != null) {
-                protocol.connectionTerminated();}
+                protocol.terminateConnection();}
             else {
                 close();
             }

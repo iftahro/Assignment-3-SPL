@@ -3,12 +3,12 @@ package bgu.spl.net.api;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class stompMessage {
+public class StompMessage {
     private String command;
     private Map<String, String> headers;
     private String body;
 
-    public stompMessage(String command) {
+    public StompMessage(String command) {
         this.command = command;
         this.headers = new LinkedHashMap<>();
         this.body = "";

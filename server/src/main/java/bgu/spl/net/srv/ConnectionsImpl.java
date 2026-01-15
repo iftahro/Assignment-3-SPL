@@ -2,12 +2,16 @@ package bgu.spl.net.srv;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import bgu.spl.net.api.stompMessage;
+import bgu.spl.net.api.StompMessage;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
     private final Map<Integer, ConnectionHandler<T>> connectionsMap = new ConcurrentHashMap<>();
+    //The map below represents all the games in the system,
+    //with each game we will maintain an additional map,
+    //where for each registered user we will save their ID for the specific game.
     private final Map<String, Map<Integer,Integer>> gamesMap = new ConcurrentHashMap<>();
 
     @Override
@@ -21,15 +25,16 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public void send(String channel, T msg) {
         Map<Integer, Integer> subscribers = gamesMap.get(channel);
-        if (subscribers != null && msg instanceof stompMessage) {
-            stompMessage originalFrame = (stompMessage) msg;
+        if (subscribers != null && msg instanceof StompMessage) {
+            StompMessage originalFrame = (StompMessage) msg;
             for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
                 int connectId = entry.getKey();
                 int subId = entry.getValue();
-                stompMessage personalizedFrame = new stompMessage("MESSAGE");
+                StompMessage personalizedFrame = new StompMessage("MESSAGE");
                 personalizedFrame.addHeader("subscription", String.valueOf(subId));
                 personalizedFrame.addHeader("destination", channel);
-                personalizedFrame.addHeader("message-id", "msg_" + (counter++));
+                String uniqueID = UUID.randomUUID().toString();
+                personalizedFrame.addHeader("message-id", "msg_" + uniqueID);
                 personalizedFrame.setBody(originalFrame.getBody());
                 send(connectId, (T) personalizedFrame);
             }
@@ -56,13 +61,13 @@ public class ConnectionsImpl<T> implements Connections<T> {
         counter++;
         return counter -1;
     }
-    public void SubscribeToGame(String gameName, int userId, int gameId)
+    public void subscribeToGame(String gameName, int userId, int subId)
     {
         gamesMap.putIfAbsent(gameName, new ConcurrentHashMap<>());
-        gamesMap.get(gameName).put(userId, gameId);
+        gamesMap.get(gameName).put(userId, subId);
     }
 
-    public void UnsubscribeFromGame(int userId, int subscriptionId) {
+    public void unsubscribeFromGame(int userId, int subscriptionId) {
         for (Map.Entry<String, Map<Integer, Integer>> entry : gamesMap.entrySet()) {
             Map<Integer, Integer> subscribers = entry.getValue();
             if (subscribers.containsKey(userId) && subscribers.get(userId) == subscriptionId) {
@@ -75,7 +80,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         return gamesMap.containsKey(gameName);
     }
 
-    public boolean playerSubToGAme(String gameName, int id )
+    public boolean isPlayerSubToGame(String gameName, int id )
     {
         if (gameExist(gameName)){
             return gamesMap.get(gameName).containsKey(id);
