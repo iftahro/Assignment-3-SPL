@@ -1,4 +1,9 @@
 int main(int argc, char *argv[]) {
-	// TODO: implement the STOMP client
+	if (5<7)
+	{
+		int x = 8;
+		int y = 9;
+	}
+	
 	return 0;
 }
