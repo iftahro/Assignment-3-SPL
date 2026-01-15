@@ -96,13 +96,16 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
     private void handleConnect(StompMessage msg) {
         String login = msg.getHeader("login");
         String passcode = msg.getHeader("passcode");
-        if (connections.checkPassword(login, passcode)) {
-            StompMessage response = new StompMessage("CONNECTED");
-            response.addHeader("version", "1.2");
-            connections.send(connectionId, response);
-        } else {
-            sendError("Invalid passcode", msg);
+        if (!connections.checkPassword(login, passcode)) {
+            sendError("Wrong password", msg);
+            return;
+        } else if (connections.checkUserLoggedIn(login)) {
+            sendError("User already logged in", msg);
+            return;
         }
+        StompMessage response = new StompMessage("CONNECTED");
+        response.addHeader("version", "1.2");
+        connections.send(connectionId, response);
     }
 
 private void handleDisconnect(StompMessage message) {

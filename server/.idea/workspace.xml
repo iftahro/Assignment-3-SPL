@@ -4,7 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="85db6f90-da97-4c75-a283-50648da3c2f4" name="Changes" comment="Moved non generic code to protocol">
+    <list default="true" id="85db6f90-da97-4c75-a283-50648da3c2f4" name="Changes" comment="Added users map">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessagingProtocolImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessagingProtocolImpl.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/Connections.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/Connections.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java" afterDir="false" />
@@ -39,12 +40,21 @@
       <option name="project" value="LOCAL" />
       <updated>1768505639071</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Added users map">
+      <option name="closed" value="true" />
+      <created>1768506011681</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1768506011681</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="General fix" />
     <MESSAGE value="Moved non generic code to protocol" />
-    <option name="LAST_COMMIT_MESSAGE" value="Moved non generic code to protocol" />
+    <MESSAGE value="Added users map" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added users map" />
   </component>
 </project>

@@ -6,8 +6,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
-    private final Map<Integer, ConnectionHandler<T>> connectionsMap = new ConcurrentHashMap<>();
-    private final Map<String, String> usersMap = new ConcurrentHashMap<>();
+    private final Map<Integer, ConnectionHandler<T>> handlerMap = new ConcurrentHashMap<>();
+    // Map for {username: [password,isLoggedIn]}
+    private final Map<String, Object[]> usersMap = new ConcurrentHashMap<>();
     //The map below represents all the games in the system,
     //with each game we will maintain an additional map,
     //where for each registered user we will save their ID for the specific game.
@@ -16,7 +17,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public boolean send(int connectionId, T msg) {
         // todo check if missing.
-        ConnectionHandler<T> connectionHandler = connectionsMap.get(connectionId);
+        ConnectionHandler<T> connectionHandler = handlerMap.get(connectionId);
         connectionHandler.send(msg);
         return true;
     }
@@ -36,21 +37,20 @@ public class ConnectionsImpl<T> implements Connections<T> {
             entry.getValue().remove(connectionId);
         }
         try {
-            connectionsMap.get(connectionId).close();
+            handlerMap.get(connectionId).close();
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        connectionsMap.remove(connectionId);
+        handlerMap.remove(connectionId);
     }
 
     @Override
     public int addHandler(ConnectionHandler<T> connectionHandler) {
-        connectionsMap.put(counter, connectionHandler);
+        handlerMap.put(counter, connectionHandler);
         counter++;
         return counter -1;
     }
-    public void subscribeToGame(String gameName, int userId, int subId)
-    {
+    public void subscribeToGame(String gameName, int userId, int subId) {
         gamesMap.putIfAbsent(gameName, new ConcurrentHashMap<>());
         gamesMap.get(gameName).put(userId, subId);
     }
@@ -71,19 +71,22 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public boolean checkPassword(String username, String password) {
-        if (!usersMap.containsKey(username)) {
-            usersMap.put(username,password);
-            return true;
-        }
-        return usersMap.get(username).equals(password);
+        usersMap.putIfAbsent(username, new Object[]{password, false});
+        return usersMap.get(username)[0].equals(password);
+    }
+
+    @Override
+    public boolean checkUserLoggedIn(String username) {
+        if ((boolean) usersMap.get(username)[1]) return true;
+        usersMap.get(username)[1] = true;
+        return false;
     }
 
     public boolean gameExist(String gameName){
         return gamesMap.containsKey(gameName);
     }
 
-    public boolean isPlayerSubToGame(String gameName, int id )
-    {
+    public boolean isPlayerSubToGame(String gameName, int id ) {
         if (gameExist(gameName)){
             return gamesMap.get(gameName).containsKey(id);
         }
@@ -92,6 +95,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public ConnectionHandler<T> getHandler(int id) {
-        return connectionsMap.get(id);
+        return handlerMap.get(id);
     }
 }

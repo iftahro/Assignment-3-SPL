@@ -23,4 +23,6 @@ public interface Connections<T> {
     Map<Integer, Integer> getSubscribers(String channel);
 
     boolean checkPassword(String username, String password);
+
+    boolean checkUserLoggedIn(String username);
 }
