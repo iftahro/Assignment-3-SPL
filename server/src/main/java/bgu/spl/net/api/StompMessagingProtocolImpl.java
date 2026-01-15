@@ -99,7 +99,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         if (!connections.checkPassword(login, passcode)) {
             sendError("Wrong password", msg);
             return;
-        } else if (connections.checkUserLoggedIn(login)) {
+        } else if (connections.checkUserLoggedIn(login, connectionId)) {
             sendError("User already logged in", msg);
             return;
         }

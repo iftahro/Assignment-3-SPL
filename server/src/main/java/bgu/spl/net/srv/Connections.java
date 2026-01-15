@@ -24,5 +24,5 @@ public interface Connections<T> {
 
     boolean checkPassword(String username, String password);
 
-    boolean checkUserLoggedIn(String username);
+    boolean checkUserLoggedIn(String username, int connectionId);
 }

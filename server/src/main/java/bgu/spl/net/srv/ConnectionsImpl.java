@@ -42,6 +42,13 @@ public class ConnectionsImpl<T> implements Connections<T> {
             ex.printStackTrace();
         }
         handlerMap.remove(connectionId);
+        // todo move logic to sql
+        for (Map.Entry<String, Object[]> entry : usersMap.entrySet()) {
+            if (entry.getValue()[1].equals(connectionId)) {
+                entry.getValue()[1] = 0;
+                break;
+            }
+        }
     }
 
     @Override
@@ -74,14 +81,14 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public boolean checkPassword(String username, String password) {
-        usersMap.putIfAbsent(username, new Object[]{password, false});
+        usersMap.putIfAbsent(username, new Object[]{password, 0});
         return usersMap.get(username)[0].equals(password);
     }
 
     @Override
-    public boolean checkUserLoggedIn(String username) {
-        if ((boolean) usersMap.get(username)[1]) return true;
-        usersMap.get(username)[1] = true;
+    public boolean checkUserLoggedIn(String username, int connectionId) {
+        if ((int) usersMap.get(username)[1] != 0) return true;
+        usersMap.get(username)[1] = connectionId;
         return false;
     }
 
