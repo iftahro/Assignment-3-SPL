@@ -17,4 +17,8 @@ public interface Connections<T> {
     boolean gameExist(String gameName);
 
     boolean playerSubToGAme(String gameName, int id );
+
+    void SubscribeToGame(String gameName, int userId, int gameId);
+
+    void UnsubscribeFromGame(int userId, int subscriptionId);
 }

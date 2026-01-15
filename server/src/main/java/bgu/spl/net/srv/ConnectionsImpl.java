@@ -53,6 +53,20 @@ public class ConnectionsImpl<T> implements Connections<T> {
         counter++;
         return counter -1;
     }
+    public void SubscribeToGame(String gameName, int userId, int gameId)
+    {
+        gamesMap.putIfAbsent(gameName, new ConcurrentHashMap<>());
+        gamesMap.get(gameName).put(userId, gameId);
+    }
+
+    public void UnsubscribeFromGame(int userId, int subscriptionId) {
+        for (Map.Entry<String, Map<Integer, Integer>> entry : gamesMap.entrySet()) {
+            Map<Integer, Integer> subscribers = entry.getValue();
+            if (subscribers.containsKey(userId) && subscribers.get(userId) == subscriptionId) {
+                subscribers.remove(userId);
+            }
+        }
+    }
 
     public boolean gameExist(String gameName){
         return gamesMap.containsKey(gameName);

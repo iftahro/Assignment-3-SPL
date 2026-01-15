@@ -29,9 +29,24 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
             case "DISCONNECT":
                 handleDisconnect(message);
                 break;
+            case "SUBSCRIBE":
+                handleSubscribe(message);
+                break;
+            case "UNSUBSCRIBE":
+                handleUnsubscribe(message);
+                break;
         }
         checkAndSendReceipt(message);
-        }
+    }
+    private void handleSubscribe(stompMessage msg) {
+        String destination = msg.getHeader("destination");
+        int gameId = Integer.parseInt(msg.getHeader("id"));
+            connections.SubscribeToGame(destination,connectionId,gameId);
+    }
+    private void handleUnsubscribe(stompMessage msg) {
+        int gameId = Integer.parseInt(msg.getHeader("id"));
+            connections.UnsubscribeFromGame(connectionId, gameId);
+    }
     private void handleSend(stompMessage msg) {
         String destination = msg.getHeader("destination");
         if (connections.playerSubToGAme(destination, connectionId)) {
