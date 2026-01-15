@@ -96,12 +96,12 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
     private void handleConnect(StompMessage msg) {
         String login = msg.getHeader("login");
         String passcode = msg.getHeader("passcode");
-        if (login != null && passcode != null) {
+        if (connections.checkPassword(login, passcode)) {
             StompMessage response = new StompMessage("CONNECTED");
             response.addHeader("version", "1.2");
             connections.send(connectionId, response);
         } else {
-            sendError("Missing login or passcode", msg);
+            sendError("Invalid passcode", msg);
         }
     }
 

@@ -21,4 +21,6 @@ public interface Connections<T> {
     void unsubscribeFromGame(int userId, int subscriptionId);
 
     Map<Integer, Integer> getSubscribers(String channel);
+
+    boolean checkPassword(String username, String password);
 }

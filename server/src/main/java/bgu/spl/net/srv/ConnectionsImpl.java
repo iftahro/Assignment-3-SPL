@@ -2,13 +2,12 @@ package bgu.spl.net.srv;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import bgu.spl.net.api.StompMessage;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
     private final Map<Integer, ConnectionHandler<T>> connectionsMap = new ConcurrentHashMap<>();
+    private final Map<String, String> usersMap = new ConcurrentHashMap<>();
     //The map below represents all the games in the system,
     //with each game we will maintain an additional map,
     //where for each registered user we will save their ID for the specific game.
@@ -68,6 +67,15 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public Map<Integer, Integer> getSubscribers(String channel) {
         return gamesMap.get(channel);
+    }
+
+    @Override
+    public boolean checkPassword(String username, String password) {
+        if (!usersMap.containsKey(username)) {
+            usersMap.put(username,password);
+            return true;
+        }
+        return usersMap.get(username).equals(password);
     }
 
     public boolean gameExist(String gameName){
