@@ -2,11 +2,14 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build-stomp",
+      "label": "build",
       "type": "shell",
       "command": "make",
-      "args": ["StompWCIClient"],
-      "group": "build",
+      "args": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
       "problemMatcher": ["$gcc"]
     }
   ]

@@ -2,16 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug StompClient",
+      "name": "Run echoclient",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/StompWCIClient",
-      "preLaunchTask": "build-stomp",
+      "program": "${workspaceFolder}/bin/EchoClient",
+      "args": ["localhost", "3000"], 
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
       "externalConsole": false,
       "MIMode": "gdb",
-      "MIDebuggerPath": "/usr/bin/gdb"
+      "miDebuggerPath": "/usr/bin/gdb", 
+      "preLaunchTask": "build"
+    },
+    {
+      "name": "Run stompclient",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/StompWCIClient",
+      "args": ["localhost", "61613"], 
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb", 
+      "preLaunchTask": "build"
     }
   ]
 }
