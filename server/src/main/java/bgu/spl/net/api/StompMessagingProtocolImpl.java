@@ -2,6 +2,9 @@ package bgu.spl.net.api;
 
 import bgu.spl.net.srv.Connections;
 
+import java.util.Map;
+import java.util.UUID;
+
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompMessage> {
     private int connectionId;
     private Connections<StompMessage> connections;
@@ -72,9 +75,20 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             return;
         }
         if (connections.isPlayerSubToGame(destination, connectionId)) {
-            StompMessage messageFrame = new StompMessage("MESSAGE");
-            messageFrame.setBody(msg.getBody());
-            connections.send(destination, messageFrame);
+            Map<Integer, Integer> subscribers = connections.getSubscribers(destination);
+            if (subscribers != null) {
+                for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
+                    int connectId = entry.getKey();
+                    int subId = entry.getValue();
+                    StompMessage personalizedFrame = new StompMessage("MESSAGE");
+                    personalizedFrame.addHeader("subscription", String.valueOf(subId));
+                    personalizedFrame.addHeader("destination", destination);
+                    String uniqueID = UUID.randomUUID().toString();
+                    personalizedFrame.addHeader("message-id", "msg-" + uniqueID);
+                    personalizedFrame.setBody(msg.getBody());
+                    connections.send(connectId, personalizedFrame);
+                }
+            }
         } else {
             sendError("User not subscribed to channel " + destination, msg);
         }

@@ -1,5 +1,7 @@
 package bgu.spl.net.srv;
 
+import java.util.Map;
+
 public interface Connections<T> {
 
     boolean send(int connectionId, T msg);
@@ -17,4 +19,6 @@ public interface Connections<T> {
     void subscribeToGame(String gameName, int userId, int gameId);
 
     void unsubscribeFromGame(int userId, int subscriptionId);
+
+    Map<Integer, Integer> getSubscribers(String channel);
 }

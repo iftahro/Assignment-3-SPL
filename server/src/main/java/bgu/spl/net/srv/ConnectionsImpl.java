@@ -24,20 +24,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-        Map<Integer, Integer> subscribers = gamesMap.get(channel);
-        if (subscribers != null && msg instanceof StompMessage) {
-            StompMessage originalFrame = (StompMessage) msg;
-            for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
-                int connectId = entry.getKey();
-                int subId = entry.getValue();
-                StompMessage personalizedFrame = new StompMessage("MESSAGE");
-                personalizedFrame.addHeader("subscription", String.valueOf(subId));
-                personalizedFrame.addHeader("destination", channel);
-                String uniqueID = UUID.randomUUID().toString();
-                personalizedFrame.addHeader("message-id", "msg_" + uniqueID);
-                personalizedFrame.setBody(originalFrame.getBody());
-                send(connectId, (T) personalizedFrame);
-            }
+        Map<Integer, Integer> subscribers = getSubscribers(channel);
+        for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
+            send(entry.getKey(), msg);
         }
     }
 
@@ -74,6 +63,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 subscribers.remove(userId);
             }
         }
+    }
+
+    @Override
+    public Map<Integer, Integer> getSubscribers(String channel) {
+        return gamesMap.get(channel);
     }
 
     public boolean gameExist(String gameName){

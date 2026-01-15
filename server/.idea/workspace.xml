@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="85db6f90-da97-4c75-a283-50648da3c2f4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessageEncoderDecoder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessageEncoderDecoder.java" afterDir="false" />
+    <list default="true" id="85db6f90-da97-4c75-a283-50648da3c2f4" name="Changes" comment="General fix">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessagingProtocolImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/api/StompMessagingProtocolImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/Connections.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/Connections.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/bgu/spl/net/srv/ConnectionsImpl.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,6 +24,19 @@
   }
 }</component>
   <component name="TaskManager">
+    <task id="LOCAL-00001" summary="General fix">
+      <option name="closed" value="true" />
+      <created>1768505028453</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1768505028453</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="General fix" />
+    <option name="LAST_COMMIT_MESSAGE" value="General fix" />
   </component>
 </project>
