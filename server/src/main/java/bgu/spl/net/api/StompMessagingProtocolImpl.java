@@ -17,7 +17,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
     public void process(stompMessage message) {
         String command = message.getCommand();
 
-        if (command == null) return;
+        if (command == null || command.isEmpty()) {
+            sendError("Malformed frame: missing command", null);
+            return;
+        }
 
         switch (command) {
             case "CONNECT":
@@ -40,15 +43,31 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompM
     }
     private void handleSubscribe(stompMessage msg) {
         String destination = msg.getHeader("destination");
-        int gameId = Integer.parseInt(msg.getHeader("id"));
-            connections.SubscribeToGame(destination,connectionId,gameId);
+        String sGameId = msg.getHeader("id");
+        if (destination == null || destination.isEmpty() ||
+        sGameId == null || sGameId.isEmpty()) {
+            sendError("Malformed SUBSCRIBE frame: missing destination or ID", msg);
+            return;
+        }
+        int gameId = Integer.parseInt(sGameId);
+        connections.SubscribeToGame(destination,connectionId,gameId);
     }
+
     private void handleUnsubscribe(stompMessage msg) {
-        int gameId = Integer.parseInt(msg.getHeader("id"));
+        String idStr = msg.getHeader("id");
+        if (idStr == null || idStr.isEmpty()) {
+            sendError("Malformed UNSUBSCRIBE frame: missing id header", msg);
+            return;
+        }
+        int gameId = Integer.parseInt(idStr);
             connections.UnsubscribeFromGame(connectionId, gameId);
     }
     private void handleSend(stompMessage msg) {
         String destination = msg.getHeader("destination");
+        if (destination == null || destination.isEmpty()) {
+            sendError("Malformed SEND frame: missing destination", msg);
+            return;
+        }
         if (connections.playerSubToGAme(destination, connectionId)) {
             stompMessage messageFrame = new stompMessage("MESSAGE");
             messageFrame.addHeader("destination", destination);
@@ -76,6 +95,7 @@ private void handleDisconnect(stompMessage message) {
     connections.disconnect(connectionId);
     shouldTerminate = true;
 }
+
 private void checkAndSendReceipt(stompMessage message) {
     String receiptId = message.getHeader("receipt");
     if (receiptId != null) {
@@ -84,13 +104,22 @@ private void checkAndSendReceipt(stompMessage message) {
         connections.send(connectionId, receiptFrame);
     }
 }
+
 private void sendError(String errorMsg, stompMessage originalMessage) {
     stompMessage errorFrame = new stompMessage("ERROR");
     errorFrame.addHeader("message", errorMsg);
-
+    StringBuilder body = new StringBuilder();
     if (originalMessage != null) {
-        errorFrame.setBody("The message causing the error:\n-----\n" + originalMessage.toString());
+        if (originalMessage.getHeader("receipt") != null)
+            errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
+        body.append("The message:\n-----\n");
+        body.append(originalMessage.toString());
+
     }
+    else {
+        body.append("(No original message)");
+    }
+    errorFrame.setBody(body.toString());
     connections.send(connectionId, errorFrame);
     connections.disconnect(connectionId);
     shouldTerminate = true;

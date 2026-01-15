@@ -39,6 +39,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public void disconnect(int connectionId) {
         // todo check if missing.
+        for (Map.Entry<String, Map<Integer, Integer>> entry : gamesMap.entrySet()) {
+            entry.getValue().remove(connectionId);
+        }
         try {
             connectionsMap.get(connectionId).close();
         } catch (IOException ex) {
