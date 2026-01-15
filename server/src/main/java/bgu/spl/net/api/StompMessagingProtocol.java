@@ -15,5 +15,5 @@ public interface StompMessagingProtocol<T>  {
      */
     boolean shouldTerminate();
 
-	void connectionTerminated()ף
+	void connectionTerminated();
 }

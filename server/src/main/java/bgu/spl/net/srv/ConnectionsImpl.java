@@ -1,9 +1,9 @@
 package bgu.spl.net.srv;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import bgu.spl.net.api.stompMessage;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     int counter = 1;
@@ -20,14 +20,19 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-        Map<Integer,Integer> tempMap = gamesMap.get(channel);
-        for (Map.Entry<Integer, Integer> entry : tempMap.entrySet()) {
-            int connectId = entry.getKey();
-            int gameId = entry.getValue();
-            String tempMsg = (String) msg;
-            String finalMsg = tempMsg.replaceFirst("MESSAGE\n",
-                    "MESSAGE\nsubscription:" + gameId + "\n");
-            send(connectId,(T) finalMsg);
+        Map<Integer, Integer> subscribers = gamesMap.get(channel);
+        if (subscribers != null && msg instanceof stompMessage) {
+            stompMessage originalFrame = (stompMessage) msg;
+            for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
+                int connectId = entry.getKey();
+                int subId = entry.getValue();
+                stompMessage personalizedFrame = new stompMessage("MESSAGE");
+                personalizedFrame.addHeader("subscription", String.valueOf(subId));
+                personalizedFrame.addHeader("destination", channel);
+                personalizedFrame.addHeader("message-id", "msg_" + (counter++));
+                personalizedFrame.setBody(originalFrame.getBody());
+                send(connectId, (T) personalizedFrame);
+            }
         }
     }
 

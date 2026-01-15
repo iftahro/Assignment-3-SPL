@@ -2,122 +2,84 @@ package bgu.spl.net.api;
 
 import bgu.spl.net.srv.Connections;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class StompMessagingProtocolImpl implements StompMessagingProtocol<String> {
+public class StompMessagingProtocolImpl implements StompMessagingProtocol<stompMessage> {
     private int connectionId;
-    private Connections<String> connections;
+    private Connections<stompMessage> connections;
     private boolean shouldTerminate = false;
 
     @Override
-    public void start(int connectionId, Connections<String> connections) {
+    public void start(int connectionId, Connections<stompMessage> connections) {
         this.connectionId = connectionId;
         this.connections = connections;
     }
 
     @Override
-    public void process(String message) {
-        String[] lines = message.split("\n");
-        if (lines.length == 0) {
-            return;
-        }
-        String command = lines[0].trim();
-        if (command.equals("CONNECT")) {
-            handleConnect(lines);
-        } else if (command.equals("SEND")) {
-            handleSend(lines);
-        } else if (command.equals("SUBSCRIBE")) {
-            
-        }
-        checkAndSendReceipt(lines);
-        if (command.equals("DISCONNECT")) {
-            connections.disconnect(connectionId);
-            shouldTerminate = true;
-        }
-    }
-    private void handleSubscribe(String[] lines){
-        String destination = null;
-        for (String line : lines) {
-            if (line.startsWith("destination:")) {
-                destination = line.substring(12).trim();
+    public void process(stompMessage message) {
+        String command = message.getCommand();
+
+        if (command == null) return;
+
+        switch (command) {
+            case "CONNECT":
+                handleConnect(message);
                 break;
-            }}
-    }
-
-    private void handleSend(String[] lines) {
-        String destination = null;
-        for (String line : lines) {
-            if (line.startsWith("destination:")) {
-                destination = line.substring(12).trim();
+            case "SEND":
+                handleSend(message);
                 break;
-            }
+            case "DISCONNECT":
+                handleDisconnect(message);
+                break;
         }
-            if (connections.playerSubToGAme(destination, connectionId))
-            {
-                StringBuilder body = new StringBuilder();
-                boolean isBody = false;
-                for (String tempLine : lines) {
-                    if (isBody) {
-                        body.append(tempLine).append("\n");
-                    } else if (tempLine.isEmpty()) {
-                        isBody = true;
-                    }
-                }
-                String messageId = connectionId + "_" + System.currentTimeMillis();
-                String messageFrame = "MESSAGE\n" +
-                        "destination:" + destination + "\n" +
-                        "message-id:" + messageId + "\n" +
-                        "\n" +
-                        body.toString();
-
-                connections.send(destination, messageFrame);
-            }
-
-
+        checkAndSendReceipt(message);
+        }
+    private void handleSend(stompMessage msg) {
+        String destination = msg.getHeader("destination");
+        if (connections.playerSubToGAme(destination, connectionId)) {
+            stompMessage messageFrame = new stompMessage("MESSAGE");
+            messageFrame.addHeader("destination", destination);
+            messageFrame.addHeader("message-id", "msg_" + System.currentTimeMillis());
+            messageFrame.setBody(msg.getBody());
+            connections.send(destination, messageFrame);
+        } else {
+            sendError("User not subscribed to channel " + destination, msg);
+        }
     }
-    private void handleConnect(String[] lines) {
-        String login = null;
-        String passcode = null;
-
-        for (String line : lines) {
-            if (line.startsWith("login:")) {
-                login = line.substring(6).trim();
-            } else if (line.startsWith("passcode:")) {
-                passcode = line.substring(9).trim();
-            }
-        }
-        // todo - check password.
+    private void handleConnect(stompMessage msg) {
+        String login = msg.getHeader("login");
+        String passcode = msg.getHeader("passcode");
         if (login != null && passcode != null) {
-            String response = "CONNECTED\n" +
-                    "version:1.2\n";
-
+            stompMessage response = new stompMessage("CONNECTED");
+            response.addHeader("version", "1.2");
             connections.send(connectionId, response);
         } else {
-            sendError("Missing login or passcode");
-        }
-    }
-    private void checkAndSendReceipt(String[] lines) {
-        for (String line : lines) {
-            if (line.startsWith("receipt:")) {
-                String receiptId = line.substring(8).trim();
-                String receiptFrame = "RECEIPT\n" +
-                        "receipt-id:" + receiptId + "\n" +
-                        "\n";
-                connections.send(connectionId, receiptFrame);
-                break;
-            }
+            sendError("Missing login or passcode", msg);
         }
     }
 
-    private void sendError(String errorMsg) {
-        // todo write errors.
-        String errorFrame = "ERROR\n" +
-                "message: " + errorMsg + "\n";
-        connections.send(connectionId, errorFrame);
-        connections.disconnect(connectionId);
-        shouldTerminate = true;
+private void handleDisconnect(stompMessage message) {
+    checkAndSendReceipt(message);
+    connections.disconnect(connectionId);
+    shouldTerminate = true;
+}
+private void checkAndSendReceipt(stompMessage message) {
+    String receiptId = message.getHeader("receipt");
+    if (receiptId != null) {
+        stompMessage receiptFrame = new stompMessage("RECEIPT");
+        receiptFrame.addHeader("receipt-id", receiptId);
+        connections.send(connectionId, receiptFrame);
     }
+}
+private void sendError(String errorMsg, stompMessage originalMessage) {
+    stompMessage errorFrame = new stompMessage("ERROR");
+    errorFrame.addHeader("message", errorMsg);
+
+    if (originalMessage != null) {
+        errorFrame.setBody("The message causing the error:\n-----\n" + originalMessage.toString());
+    }
+    connections.send(connectionId, errorFrame);
+    connections.disconnect(connectionId);
+    shouldTerminate = true;
+}
     @Override
     public void connectionTerminated() {
         connections.disconnect(connectionId);
