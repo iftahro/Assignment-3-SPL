@@ -62,8 +62,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
     private void handleUnsubscribe(StompMessage msg) {
         String idStr = msg.getHeader("id");
         if (idStr == null || idStr.isEmpty()) {return;}
-        int gameId = Integer.parseInt(idStr);
-        connections.unsubscribeFromGame(connectionId, gameId);
+        int subId = Integer.parseInt(idStr);
+        connections.unsubscribeFromGame(connectionId, subId);
     }
     private void handleSend(StompMessage msg) {
         String destination = msg.getHeader("destination");
@@ -113,12 +113,9 @@ private void sendError(String errorMsg, StompMessage originalMessage) {
     if (originalMessage != null) {
         if (originalMessage.getHeader("receipt") != null)
             errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
-        body.append("The message:\n-----\n");
+        body.append("Input frame:\n-----\n");
         body.append(originalMessage.toString());
-
-    }
-    else {
-        body.append("(No original message)");
+        body.append("-----");
     }
     errorFrame.setBody(body.toString());
     connections.send(connectionId, errorFrame);

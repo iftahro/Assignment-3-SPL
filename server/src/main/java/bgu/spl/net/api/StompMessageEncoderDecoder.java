@@ -43,7 +43,7 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<StompMe
 
     @Override
     public byte[] encode(StompMessage message) {
-        return (message.toString() + "\u0000").getBytes(StandardCharsets.UTF_8);
+        return (message.toString() + "\n\u0000").getBytes(StandardCharsets.UTF_8);
     }
 
     private void pushByte(byte nextByte) {
