@@ -106,3 +106,11 @@ void ConnectionHandler::close() {
 		std::cout << "closing failed: connection already closed" << std::endl;
 	}
 }
+
+bool ConnectionHandler::getFrame(std::string &frame) {
+    return getFrameAscii(frame, '\0');
+}
+
+bool ConnectionHandler::sendFrame(const std::string &frame) {
+    return sendFrameAscii(frame, '\0');
+}

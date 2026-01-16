@@ -44,6 +44,11 @@ public:
 	// Send a message to the remote host.
 	// Returns false in case connection is closed before all the data is sent.
 	bool sendFrameAscii(const std::string &frame, char delimiter);
+	// Read a frame based on the STOMP protocol (ending with null character)
+    bool getFrame(std::string &frame);
+
+	// Send a frame based on the STOMP protocol (ending with null character)
+	bool sendFrame(const std::string &frame);
 
 	// Close down the connection properly.
 	void close();
