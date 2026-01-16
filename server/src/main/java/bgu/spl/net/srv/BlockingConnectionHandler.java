@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.BufferedInputStream;
@@ -38,6 +37,10 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
         } catch (IOException ex) {
             ex.printStackTrace();
+            //todo to check if needed here
+            if (protocol != null) {
+                protocol.terminateConnection();
+            }
         }
     }
 
