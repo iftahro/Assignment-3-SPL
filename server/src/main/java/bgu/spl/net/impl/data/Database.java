@@ -48,6 +48,11 @@ public class Database {
 	public ConcurrentHashMap<Integer, Integer> getSubscribers(String channel) {
 		return gamesMap.get(channel);
 	}
+
+	public boolean isUserLoggedIn(int connectionId) {
+		User user = connectionsIdMap.get(connectionId);
+		return user != null && user.isLoggedIn();
+	}
 	/**
 	 * Execute SQL query and return result
 	 * @param sql SQL query string

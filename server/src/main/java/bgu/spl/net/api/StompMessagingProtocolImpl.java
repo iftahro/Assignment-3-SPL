@@ -22,8 +22,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
     @Override
     public void process(StompMessage message) {
         String command = message.getCommand();
-        if (command == null || command.isEmpty()) {
-            sendError("Malformed frame: missing command", null);
+        if (!command.equals("CONNECT") && !database.isUserLoggedIn(connectionId)) {
             return;
         }
         switch (command) {
@@ -42,6 +41,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             case "UNSUBSCRIBE":
                 handleUnsubscribe(message);
                 break;
+            default:
+                return;
         }
         if (!shouldTerminate) {
             checkAndSendReceipt(message);
@@ -111,7 +112,6 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
 
     private void handleDisconnect(StompMessage message) {
         checkAndSendReceipt(message);
-        terminateConnection();
         shouldTerminate = true;
     }
 
@@ -137,7 +137,6 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         }
         errorFrame.setBody(body.toString());
         connections.send(connectionId, errorFrame);
-        terminateConnection();
         shouldTerminate = true;
     }
 
