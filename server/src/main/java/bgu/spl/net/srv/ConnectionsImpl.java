@@ -3,9 +3,10 @@ package bgu.spl.net.srv;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionsImpl<T> implements Connections<T> {
-    int connectionIdCounter = 1;
+    private final AtomicInteger connectionIdCounter = new AtomicInteger(0);
     private final Map<Integer, ConnectionHandler<T>> handlerMap = new ConcurrentHashMap<>();
 
     @Override
@@ -34,9 +35,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public int addHandler(ConnectionHandler<T> connectionHandler) {
-        handlerMap.put(connectionIdCounter, connectionHandler);
-        connectionIdCounter++;
-        return connectionIdCounter -1;
+        int connectionId = connectionIdCounter.getAndIncrement();
+        handlerMap.put(connectionId, connectionHandler);
+        return connectionId;
     }
 
     @Override
