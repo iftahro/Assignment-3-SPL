@@ -4,17 +4,21 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Database {
 	private final ConcurrentHashMap<String, User> userMap;
 	private final ConcurrentHashMap<Integer, User> connectionsIdMap;
+	// Games map structure: {gameName: {connectionId: subscriptionId, ....}, ....}
+	private final ConcurrentHashMap<String, ConcurrentHashMap<Integer,Integer>> gamesMap;
 	private final String sqlHost;
 	private final int sqlPort;
 
 	private Database() {
 		userMap = new ConcurrentHashMap<>();
 		connectionsIdMap = new ConcurrentHashMap<>();
+		gamesMap = new ConcurrentHashMap<>();
 		// SQL server connection details
 		this.sqlHost = "127.0.0.1";
 		this.sqlPort = 7778;
@@ -24,6 +28,31 @@ public class Database {
 		return Instance.instance;
 	}
 
+	public void subscribeToGame(String gameName, Integer connectionId, Integer subId) {
+		gamesMap.computeIfAbsent(gameName, k -> new ConcurrentHashMap<>())
+				.put(connectionId, subId);
+	}
+
+	public void unsubscribeFromGame(int connectionId, int subscriptionId) {
+		for (Map<Integer, Integer> subscribers : gamesMap.values()) {
+			subscribers.remove(connectionId, subscriptionId);
+		}
+	}
+
+	public void unsubscribeFromAll(int connectionId) {
+		for (ConcurrentHashMap<Integer, Integer> channel : gamesMap.values()) {
+			channel.remove(connectionId);
+		}
+	}
+
+	public ConcurrentHashMap<Integer, Integer> getSubscribers(String channel) {
+		return gamesMap.get(channel);
+	}
+
+	public boolean isUserLoggedIn(int connectionId) {
+		User user = connectionsIdMap.get(connectionId);
+		return user != null && user.isLoggedIn();
+	}
 	/**
 	 * Execute SQL query and return result
 	 * @param sql SQL query string

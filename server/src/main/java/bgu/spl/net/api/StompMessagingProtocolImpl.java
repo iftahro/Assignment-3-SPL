@@ -1,14 +1,17 @@
 package bgu.spl.net.api;
 
+import bgu.spl.net.impl.data.Database;
+import bgu.spl.net.impl.data.LoginStatus;
 import bgu.spl.net.srv.Connections;
 
-import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompMessage> {
     private int connectionId;
     private Connections<StompMessage> connections;
     private boolean shouldTerminate = false;
+    private final Database database = Database.getInstance();
 
     @Override
     public void start(int connectionId, Connections<StompMessage> connections) {
@@ -19,12 +22,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
     @Override
     public void process(StompMessage message) {
         String command = message.getCommand();
-
-        if (command == null || command.isEmpty()) {
-            sendError("Malformed frame: missing command", null);
+        if (!command.equals("CONNECT") && !database.isUserLoggedIn(connectionId)) {
             return;
         }
-
         switch (command) {
             case "CONNECT":
                 handleConnect(message);
@@ -41,6 +41,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             case "UNSUBSCRIBE":
                 handleUnsubscribe(message);
                 break;
+            default:
+                return;
         }
         if (!shouldTerminate) {
             checkAndSendReceipt(message);
@@ -59,14 +61,14 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             return;
         }
         int subId = Integer.parseInt(tempSubId);
-        connections.subscribeToGame(destination,connectionId,subId);
+        database.subscribeToGame(destination, connectionId, subId);
     }
 
     private void handleUnsubscribe(StompMessage msg) {
         String idStr = msg.getHeader("id");
         if (idStr == null || idStr.isEmpty()) {return;}
         int subId = Integer.parseInt(idStr);
-        connections.unsubscribeFromGame(connectionId, subId);
+        database.unsubscribeFromGame(connectionId, subId);
     }
     private void handleSend(StompMessage msg) {
         String destination = msg.getHeader("destination");
@@ -74,33 +76,33 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             sendError("Malformed SEND frame: missing destination", msg);
             return;
         }
-        if (connections.isPlayerSubToGame(destination, connectionId)) {
-            Map<Integer, Integer> subscribers = connections.getSubscribers(destination);
-            if (subscribers != null) {
-                for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
-                    int connectId = entry.getKey();
-                    int subId = entry.getValue();
-                    StompMessage personalizedFrame = new StompMessage("MESSAGE");
-                    personalizedFrame.addHeader("subscription", String.valueOf(subId));
-                    personalizedFrame.addHeader("destination", destination);
-                    String uniqueID = UUID.randomUUID().toString();
-                    personalizedFrame.addHeader("message-id", "msg-" + uniqueID);
-                    personalizedFrame.setBody(msg.getBody());
-                    connections.send(connectId, personalizedFrame);
-                }
-            }
-        } else {
-            sendError("User not subscribed to channel " + destination, msg);
+        ConcurrentHashMap<Integer, Integer> subscribers = database.getSubscribers(destination);
+        if (subscribers == null) sendError("Channel does not exists", msg);
+        if (subscribers.get(connectionId) == null) sendError("User not subscribed to channel", msg);
+        for (ConcurrentHashMap.Entry<Integer, Integer> entry : subscribers.entrySet()) {
+            int connectId = entry.getKey();
+            int subId = entry.getValue();
+            StompMessage personalizedFrame = new StompMessage("MESSAGE");
+            personalizedFrame.addHeader("subscription", String.valueOf(subId));
+            personalizedFrame.addHeader("destination", destination);
+            String uniqueID = UUID.randomUUID().toString();
+            personalizedFrame.addHeader("message-id", "msg-" + uniqueID);
+            personalizedFrame.setBody(msg.getBody());
+            connections.send(connectId, personalizedFrame);
         }
     }
     private void handleConnect(StompMessage msg) {
         String login = msg.getHeader("login");
         String passcode = msg.getHeader("passcode");
-        if (!connections.checkPassword(login, passcode)) {
+        LoginStatus loginStatus = database.login(connectionId, login, passcode);
+        if (loginStatus.equals(LoginStatus.WRONG_PASSWORD)) {
             sendError("Wrong password", msg);
             return;
-        } else if (connections.checkUserLoggedIn(login, connectionId)) {
+        } else if (loginStatus.equals(LoginStatus.ALREADY_LOGGED_IN)) {
             sendError("User already logged in", msg);
+            return;
+        } else if (loginStatus.equals(LoginStatus.CLIENT_ALREADY_CONNECTED)) {
+            sendError("The client is already logged in, log out before trying again", msg);
             return;
         }
         StompMessage response = new StompMessage("CONNECTED");
@@ -108,44 +110,45 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         connections.send(connectionId, response);
     }
 
-private void handleDisconnect(StompMessage message) {
-    checkAndSendReceipt(message);
-    terminateConnection();
-    shouldTerminate = true;
-}
-
-private void checkAndSendReceipt(StompMessage message) {
-    String receiptId = message.getHeader("receipt");
-    if (receiptId != null) {
-        StompMessage receiptFrame = new StompMessage("RECEIPT");
-        receiptFrame.addHeader("receipt-id", receiptId);
-        connections.send(connectionId, receiptFrame);
+    private void handleDisconnect(StompMessage message) {
+        checkAndSendReceipt(message);
+        shouldTerminate = true;
     }
-}
 
-private void sendError(String errorMsg, StompMessage originalMessage) {
-    StompMessage errorFrame = new StompMessage("ERROR");
-    errorFrame.addHeader("message", errorMsg);
-    StringBuilder body = new StringBuilder();
-    if (originalMessage != null) {
-        if (originalMessage.getHeader("receipt") != null)
-            errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
-        body.append("Input frame:\n-----\n");
-        body.append(originalMessage.toString());
-        body.append("-----");
+    private void checkAndSendReceipt(StompMessage message) {
+        String receiptId = message.getHeader("receipt");
+        if (receiptId != null) {
+            StompMessage receiptFrame = new StompMessage("RECEIPT");
+            receiptFrame.addHeader("receipt-id", receiptId);
+            connections.send(connectionId, receiptFrame);
+        }
     }
-    errorFrame.setBody(body.toString());
-    connections.send(connectionId, errorFrame);
-    terminateConnection();
-    shouldTerminate = true;
-}
+
+    private void sendError(String errorMsg, StompMessage originalMessage) {
+        StompMessage errorFrame = new StompMessage("ERROR");
+        errorFrame.addHeader("message", errorMsg);
+        StringBuilder body = new StringBuilder();
+        if (originalMessage != null) {
+            if (originalMessage.getHeader("receipt") != null)
+                errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
+            body.append("Input frame:\n-----\n");
+            body.append(originalMessage);
+            body.append("-----");
+        }
+        errorFrame.setBody(body.toString());
+        connections.send(connectionId, errorFrame);
+        shouldTerminate = true;
+    }
+
     @Override
     public void terminateConnection() {
+        database.unsubscribeFromAll(connectionId);
+        database.logout(connectionId);
         connections.disconnect(connectionId);
     }
+
     @Override
     public boolean shouldTerminate() {
-        // todo check when needed.
         return shouldTerminate;
     }
 }
