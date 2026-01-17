@@ -1,7 +1,6 @@
 package bgu.spl.net.srv;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
 
 import java.io.IOException;
@@ -93,7 +92,6 @@ public class Reactor<T> implements Server<T> {
         }
     }
 
-
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
@@ -104,7 +102,9 @@ public class Reactor<T> implements Server<T> {
                 clientChan,
                 this);
         int connectionId = connections.addHandler(handler);
-        stompMessagingProtocol.start(connectionId, connections);
+        pool.submit(handler, () -> {
+            stompMessagingProtocol.start(connectionId, connections);
+        });
         clientChan.register(selector, SelectionKey.OP_READ, connectionId);
     }
 
