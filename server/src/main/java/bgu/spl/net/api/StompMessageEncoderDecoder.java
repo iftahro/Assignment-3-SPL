@@ -19,7 +19,9 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<StompMe
     private StompMessage parseFrame(String frameString) {
         String[] lines = frameString.split("\n");
         if (lines.length == 0) return null;
-        StompMessage message = new StompMessage(lines[0].trim());
+        String command = lines[0].trim();
+        if (command.isEmpty()) return null;
+        StompMessage message = new StompMessage(command);
         int i = 1;
         while (i < lines.length && !lines[i].trim().isEmpty()) {
             String line = lines[i];
