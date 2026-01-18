@@ -62,5 +62,6 @@
         "valarray": "cpp",
         "variant": "cpp"
     },
-    "makefile.makefilePath": "client/"
+    "makefile.makefilePath": "client/",
+    "C_Cpp.default.compilerPath": "C:/msys64/mingw64/bin/g++.exe"
 }

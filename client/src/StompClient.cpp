@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
     std::thread *socketThread = nullptr;
     volatile bool shouldTerminate = false;
     bool isConnected = false;
+    std::string username = "";
     std::map<std::string, int> channelToSubId;
     std::map<int, std::string> receiptToMessage;
     int counterSubId = 1;
@@ -234,7 +235,7 @@ int main(int argc, char *argv[])
             }
             for (Event &event : parsedData.events)
             {
-                event.setSender(userName);
+                event.setSender(username);
                 {std::lock_guard<std::mutex> lock(reportMutex);
                 gameReports[channelName][userName].push_back(event);}
                 StompFrame frame("SEND");
