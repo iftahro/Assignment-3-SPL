@@ -48,6 +48,10 @@ public:
                     receiptToMessage.erase(rId);
                 }
             }
+            if (response.command == "")
+            {
+                /* code */
+            }
         }
     }
 };
@@ -119,11 +123,24 @@ int main(int argc, char *argv[])
         }
         else if (command == "logout")
         {
-            // Implementation for logout will come later...
-            // For now, simple exit logic or just sending the frame if needed
-            if (isConnected)
+            if (!isConnected)
             {
-                // Logic for sending DISCONNECT frame will be here
+                std::cout << "Not connected." << std::endl;
+                continue;
+            }
+            int receiptId = counterRecipt;
+            receiptToMessage[receiptId] = "Logout successful";
+            StompFrame frame("DISCONNECT");
+            frame.addHeader("receipt", std::to_string(receiptId));
+            counterRecipt++;
+            if (!connectionHandler->sendFrame(frame.toString()))
+            {
+                std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
+                isConnected = false;
+            }
+            else
+            {
+                isConnected = false;
             }
         }
         else if (command == "exit")
@@ -135,7 +152,10 @@ int main(int argc, char *argv[])
                 continue;
             }
             ss >> channelName;
-            if (channelToSubId.find(channelName) == channelToSubId.end()){continue;}
+            if (channelToSubId.find(channelName) == channelToSubId.end())
+            {
+                continue;
+            }
             int subId = channelToSubId[channelName];
             int receiptId = counterRecipt;
             receiptToMessage[receiptId] = "Exited channel " + channelName;
@@ -176,6 +196,68 @@ int main(int argc, char *argv[])
                 isConnected = false;
             }
         }
+        else if (command == "report")
+        {
+            if (!isConnected)
+            {
+                std::cout << "Please login first" << std::endl;
+                continue;
+            }
+            std::string filePath;
+            ss >> filePath;
+            msgData parsedData;
+            try
+            {
+                parsedData = parseEventsFile(filePath);
+            }
+            catch (const std::exception &e)
+            {
+                std::cout << "Error parsing file: " << e.what() << std::endl;
+                continue;
+            }
+            std::string channelName = parsedData.team_a_name + "_" + parsedData.team_b_name;
+            if (channelToSubId.find(channelName) == channelToSubId.end())
+            {
+                continue;
+            }
+            for (const auto &event : parsedData.events)
+            {
+                StompFrame frame("SEND");
+                frame.addHeader("destination", "/" + channelName);
+                std::string body = "user: " + username + "\n";
+                body += "team a: " + parsedData.team_a_name + "\n";
+                body += "team b: " + parsedData.team_b_name + "\n";
+                body += "event name: " + event.get_name() + "\n";
+                body += "time: " + std::to_string(event.get_time()) + "\n";
+                body += "general game updates:\n";
+                for (const auto &pair : event.get_game_updates())
+                {
+                    body += pair.first + ": " + pair.second + "\n";
+                }
+                body += "team a updates:\n";
+                for (const auto &pair : event.get_team_a_updates())
+                {
+                    body += pair.first + ": " + pair.second + "\n"
+                }
+                body += "team b updates:\n";
+                for (const auto &pair : event.get_team_b_updates())
+                {
+                    body += pair.first + ": " + pair.second + "\n"
+                }
+                body += "description:\n" + event.get_description() + "\n";
+                frame.setBody(body);
+                if (!connectionHandler->sendFrame(frame.toString()))
+                {
+                    std::cout << "Network Error: Could not send event" << std::endl;
+                    isConnected = false;
+                    break;
+                }
+            }
+        }
+        else if (command == "summary")
+        {
+        }
+
         // Handle other commands (join, exit, report, summary)...
     }
 
