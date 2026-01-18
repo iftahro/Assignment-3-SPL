@@ -15,9 +15,9 @@ private:
     std::map<std::string, int> &channelToSubId;
 
 public:
-   SocketReader(ConnectionHandler *handler, volatile bool *shouldTerminate, 
+    SocketReader(ConnectionHandler *handler, volatile bool *shouldTerminate,
                  std::map<int, std::string> &receipts, std::map<std::string, int> &subs)
-        : handler(handler), shouldTerminate(shouldTerminate), 
+        : handler(handler), shouldTerminate(shouldTerminate),
           receiptToMessage(receipts), channelToSubId(subs) {}
 
     void operator()()
@@ -99,8 +99,8 @@ int main(int argc, char *argv[])
             }
             isConnected = true;
             // Start the reading thread
-            SocketReader reader(connectionHandler, &shouldTerminate, 
-                receiptToMessage, channelToSubId);
+            SocketReader reader(connectionHandler, &shouldTerminate,
+                                receiptToMessage, channelToSubId);
             socketThread = new std::thread(reader);
 
             // Construct the CONNECT frame exactly as required
@@ -126,6 +126,33 @@ int main(int argc, char *argv[])
                 // Logic for sending DISCONNECT frame will be here
             }
         }
+        else if (command == "exit")
+        {
+            std::string channelName;
+            if (!isConnected)
+            {
+                std::cout << "Please login first" << std::endl;
+                continue;
+            }
+            ss >> channelName;
+            if (channelToSubId.find(channelName) == channelToSubId.end()){continue;}
+            int subId = channelToSubId[channelName];
+            int receiptId = counterRecipt;
+            receiptToMessage[receiptId] = "Exited channel " + channelName;
+            StompFrame frame("UNSUBSCRIBE");
+            frame.addHeader("id", std::to_string(subId));
+            frame.addHeader("receipt", std::to_string(receiptId));
+            counterRecipt++;
+            if (!connectionHandler->sendFrame(frame.toString()))
+            {
+                std::cout << "Network Error: Could not send UNSUBSCRIBE frame to server" << std::endl;
+                isConnected = false;
+            }
+            else
+            {
+                channelToSubId.erase(channelName);
+            }
+        }
         else if (command == "join")
         {
             std::string channelName;
@@ -134,11 +161,7 @@ int main(int argc, char *argv[])
                 std::cout << "Please login first" << std::endl;
                 continue;
             }
-            if (!(ss >> channelName))
-            {
-                std::cout << "Usage: join <channel_name>" << std::endl;
-                continue;
-            }
+            ss >> channelName;
             channelToSubId[channelName] = counterSubId;
             receiptToMessage[counterRecipt] = "Joined channel " + channelName;
             StompFrame frame("SUBSCRIBE");
