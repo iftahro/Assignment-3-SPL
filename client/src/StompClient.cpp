@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
     int counterSubId = 1;
     int counterRecipt = 1;
     std::map<std::string, std::map<std::string, std::vector<Event>>> gameReports;
+    std::mutex reportMutex;
 
     while (!shouldTerminate)
     {
@@ -116,7 +117,7 @@ int main(int argc, char *argv[])
             isConnected = true;
             // Start the reading thread
             SocketReader reader(connectionHandler, &shouldTerminate,
-                                receiptToMessage, channelToSubId, gameReports);
+                                receiptToMessage, channelToSubId, gameReports, &reportMutex);
             socketThread = new std::thread(reader);
 
             // Construct the CONNECT frame exactly as required
@@ -234,7 +235,8 @@ int main(int argc, char *argv[])
             for (Event &event : parsedData.events)
             {
                 event.setSender(userName);
-                gameReports[channelName][userName].push_back(event);
+                {std::lock_guard<std::mutex> lock(reportMutex);
+                gameReports[channelName][userName].push_back(event);}
                 StompFrame frame("SEND");
                 frame.addHeader("destination", "/" + channelName);
 
@@ -258,13 +260,14 @@ int main(int argc, char *argv[])
             std::string gameName, userName, filePath;
             ss >> gameName >> userName >> filePath;
             std::vector<Event> eventsCopy;
+            {std::lock_guard<std::mutex> lock(reportMutex);
             if (gameReports.find(gameName) == gameReports.end() ||
                 gameReports[gameName].find(userName) == gameReports[gameName].end())
             {
                 std::cout << "Error: No reports found for " << gameName << " from user " << userName << std::endl;
                 continue;
             }
-            eventsCopy = gameReports[gameName][userName];
+            eventsCopy = gameReports[gameName][userName];}
             if (eventsCopy.empty())
             {
                 std::cout << "No events to report." << std::endl;

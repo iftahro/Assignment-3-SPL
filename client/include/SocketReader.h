@@ -15,6 +15,7 @@ private:
     volatile bool *shouldTerminate;
     std::map<int, std::string> &receiptToMessage;
     std::map<std::string, int> &channelToSubId;
+    std::mutex* reportMutex;
     
     // רפרנס למפה הראשית (לשמירת הנתונים עבור ה-Summary)
     std::map<std::string, std::map<std::string, std::vector<Event>>> &gameReports;
@@ -25,7 +26,8 @@ public:
                  volatile bool *shouldTerminate,
                  std::map<int, std::string> &receipts, 
                  std::map<std::string, int> &subs,
-                 std::map<std::string, std::map<std::string, std::vector<Event>>> &reports);
+                 std::map<std::string, std::map<std::string, std::vector<Event>>> &reports
+                ,std::mutex* mutex);
 
     // האופרטור שמאפשר למחלקה לרוץ בתוך thread
     void operator()();
