@@ -12,9 +12,27 @@ import socket
 import sys
 import threading
 
+import sqlite3
+from dataclasses import dataclass
+from typing import Optional
+
 
 SERVER_NAME = "STOMP_PYTHON_SQL_SERVER"  # DO NOT CHANGE!
 DB_FILE = "stomp_server.db"              # DO NOT CHANGE!
+
+# todo - check if classes necessary
+@dataclass
+class User:
+    username: str
+    password: str
+    registration_date: Optional[str] = None
+
+@dataclass
+class LoginHistory:
+    username: str
+    id: Optional[int] = None
+    login_time: Optional[str] = None
+    logout_time: Optional[str] = None
 
 
 def recv_null_terminated(sock: socket.socket) -> str:
@@ -30,15 +48,59 @@ def recv_null_terminated(sock: socket.socket) -> str:
 
 
 def init_database():
-    pass
+    """
+    Initializes the SQLite database with User and LoginHistory tables.
+    """
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA foreign_keys = ON;")
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    username TEXT PRIMARY KEY,
+                    password TEXT NOT NULL,
+                    registration_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS login_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT NOT NULL,
+                    login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    logout_time DATETIME,
+                    FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+                );
+            """)
+            
+            conn.commit()
+            print(f"[{SERVER_NAME}] Database initialized with ID in login_history.")
+    except sqlite3.Error as e:
+        print(f"[{SERVER_NAME}] DB Error: {e}")
 
 
 def execute_sql_command(sql_command: str) -> str:
-    return "done"
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA foreign_keys = ON;")
+            cursor.execute(sql_command)
+            conn.commit()
+            return "done"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 def execute_sql_query(sql_query: str) -> str:
-    return "done"
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql_query)
+            rows = cursor.fetchall()
+            return str(rows) # You can format this more nicely later
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 def handle_client(client_socket: socket.socket, addr):
@@ -52,8 +114,12 @@ def handle_client(client_socket: socket.socket, addr):
 
             print(f"[{SERVER_NAME}] Received:")
             print(message)
+            if message.strip().upper().startswith("SELECT"):
+                response = execute_sql_query(message)
+            else:
+                response = execute_sql_command(message)
 
-            client_socket.sendall(b"done\0")
+            client_socket.sendall((response + "\0").encode("utf-8"))
 
     except Exception as e:
         print(f"[{SERVER_NAME}] Error handling client {addr}: {e}")
@@ -94,6 +160,7 @@ def start_server(host="127.0.0.1", port=7778):
 
 
 if __name__ == "__main__":
+    init_database()
     port = 7778
     if len(sys.argv) > 1:
         raw_port = sys.argv[1].strip()

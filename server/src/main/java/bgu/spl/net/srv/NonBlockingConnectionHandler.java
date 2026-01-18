@@ -52,13 +52,15 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
                             protocol.process(nextMessage);
                         }
                     }
-                } finally {
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    protocol.terminateConnection();}
+                finally {
                     releaseBuffer(buf);
                 }
             };
         } else {
             releaseBuffer(buf);
-            //todo to check if needed here
             if (protocol != null) {
                 protocol.terminateConnection();}
             else {
@@ -93,13 +95,14 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
-                close();
+                protocol.terminateConnection();
             }
         }
-
-        if (writeQueue.isEmpty()) {
-            if (protocol.shouldTerminate()) close();
-            else reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
+        if (protocol.shouldTerminate()) {
+            protocol.terminateConnection();
+        }
+        else {
+            reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
         }
     }
 

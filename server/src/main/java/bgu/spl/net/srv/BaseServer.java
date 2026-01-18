@@ -45,11 +45,12 @@ public abstract class BaseServer<T> implements Server<T> {
                         clientSock,
                         encdecFactory.get(),
                         stompMessagingProtocol);
-                int id = connections.addHandler(handler);
-                stompMessagingProtocol.start(id, connections);
+                int connectionId = connections.addHandler(handler);
+                stompMessagingProtocol.start(connectionId, connections);
                 execute(handler);
             }
         } catch (IOException ex) {
+            // todo -
         }
 
         System.out.println("server closed!!!");
