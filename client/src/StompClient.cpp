@@ -4,144 +4,9 @@
 #include <sstream>
 #include "../include/ConnectionHandler.h"
 #include "../include/StompFrame.h"
+#include "../include/SocketReader.h"
 
 // This class will handle the socket reading in a separate thread
-class SocketReader
-{
-private:
-    ConnectionHandler *handler;
-    volatile bool *shouldTerminate;
-    std::map<int, std::string> &receiptToMessage;
-    std::map<std::string, int> &channelToSubId;
-    std::map<std::string, std::map<std::string, std::vector<Event>>> &gameReports;
-
-    std::pair<std::string, Event> parseEventFrame(const StompFrame &response)
-    {
-        std::string gameName = response.headers.at("destination");
-        if (gameName.length() > 0 && gameName[0] == '/')
-            gameName = gameName.substr(1);
-
-        Event event(gameName);
-        std::string user = "";
-        std::string body = response.body;
-        std::stringstream ss(body);
-        std::string line;
-        std::string currentSection = "";
-
-        while (std::getline(ss, line))
-        {
-            if (line == "general game updates:")
-            {
-                currentSection = "general";
-                continue;
-            }
-            if (line == "team a updates:")
-            {
-                currentSection = "team_a";
-                continue;
-            }
-            if (line == "team b updates:")
-            {
-                currentSection = "team_b";
-                continue;
-            }
-            if (line == "description:")
-            {
-                currentSection = "description";
-                continue;
-            }
-
-            if (currentSection == "description")
-            {
-                std::string currentDesc = event.get_description();
-                if (!currentDesc.empty())
-                    currentDesc += "\n";
-                event.set_description(currentDesc + line);
-                continue;
-            }
-
-            size_t colonPos = line.find(':');
-            if (colonPos != std::string::npos)
-            {
-                std::string key = line.substr(0, colonPos);
-                std::string value = line.substr(colonPos + 1);
-                if (value.length() > 0 && value[0] == ' ')
-                    value = value.substr(1);
-                if (currentSection == "")
-                {
-                    if (key == "user")
-                        user = value;
-                    else if (key == "event name")
-                        event.set_name(value);
-                    else if (key == "time")
-                        event.set_time(std::stoi(value));
-                }
-                else if (currentSection == "general")
-                    event.get_game_updates()[key] = value;
-                else if (currentSection == "team_a")
-                    event.get_team_a_updates()[key] = value;
-                else if (currentSection == "team_b")
-                    event.get_team_b_updates()[key] = value;
-            }
-        }
-        return {user, event};
-    }
-
-public:
-    SocketReader(ConnectionHandler *handler, volatile bool *shouldTerminate,
-                 std::map<int, std::string> &receipts, std::map<std::string, int> &subs,
-                 std::map<std::string, std::map<std::string, std::vector<Event>>> &reports)
-        : handler(handler), shouldTerminate(shouldTerminate),
-          receiptToMessage(receipts), channelToSubId(subs),
-          gameReports(reports) {}
-
-    void operator()()
-    {
-        while (!(*shouldTerminate))
-        {
-            std::string answer;
-            if (!handler->getFrame(answer))
-            {
-                std::cout << "Disconnected from server." << std::endl;
-                *shouldTerminate = true;
-                break;
-            }
-
-            // Print the received message from the server
-            // todo (In later stages, you will parse this message)
-            StompFrame response = StompFrame::fromString(answer);
-            if (response.command == "ERROR")
-                std::cout << response.body << std::endl;
-            if (response.command == "CONNECTED")
-                std::cout << "Login successful" << std::endl;
-            if (response.command == "RECEIPT")
-            {
-                int rId = std::stoi(response.headers["receipt-id"]);
-                if (receiptToMessage.count(rId))
-                {
-                    std::cout << receiptToMessage[rId] << std::endl;
-                    receiptToMessage.erase(rId);
-                }
-            }
-            if (response.command == "MESSAGE")
-            {
-                std::string gameName = response.headers["destination"];
-                std::pair<std::string, Event> result = parseEventFrame(response);
-                std::string user = result.first;
-                Event event = result.second;
-                if (!user.empty())
-                {
-                    gameReports[gameName][user].push_back(event);
-                    std::cout << "Received event: " << event.get_name() << std::endl;
-                    std::cout << "Game: " << gameName << std::endl;
-                    std::cout << "Sender: " << user << std::endl;
-                    std::cout << "Time: " << event.get_time() << std::endl;
-                    std::cout << "Description: " << event.get_description() << std::endl;
-                }
-            }
-        }
-    }
-};
 bool eventComparator(const Event &a, const Event &b)
 {
     if (a.get_before_half_time() && !b.get_before_half_time())
@@ -151,28 +16,28 @@ bool eventComparator(const Event &a, const Event &b)
     return a.get_time() < b.get_time();
 }
 
-void calculateGameStats(const std::vector<Event>& events,
-                        std::map<std::string, std::string>& generalStats,
-                        std::map<std::string, std::string>& teamAStats,
-                        std::map<std::string, std::string>& teamBStats)
+void calculateGameStats(const std::vector<Event> &events,
+                        std::map<std::string, std::string> &generalStats,
+                        std::map<std::string, std::string> &teamAStats,
+                        std::map<std::string, std::string> &teamBStats)
 {
-    for (const auto& event : events)
+    for (const auto &event : events)
     {
-        for (const auto& pair : event.get_game_updates())
+        for (const auto &pair : event.get_game_updates())
             generalStats[pair.first] = pair.second;
-        
-        for (const auto& pair : event.get_team_a_updates())
+
+        for (const auto &pair : event.get_team_a_updates())
             teamAStats[pair.first] = pair.second;
-        
-        for (const auto& pair : event.get_team_b_updates())
+
+        for (const auto &pair : event.get_team_b_updates())
             teamBStats[pair.first] = pair.second;
     }
 }
 
-void writeSummaryToFile(const std::string& filePath, const std::vector<Event>& events,
-                        const std::map<std::string, std::string>& generalStats,
-                        const std::map<std::string, std::string>& teamAStats,
-                        const std::map<std::string, std::string>& teamBStats)
+void writeSummaryToFile(const std::string &filePath, const std::vector<Event> &events,
+                        const std::map<std::string, std::string> &generalStats,
+                        const std::map<std::string, std::string> &teamAStats,
+                        const std::map<std::string, std::string> &teamBStats)
 {
     std::ofstream outFile(filePath);
     if (!outFile.is_open())
@@ -185,13 +50,16 @@ void writeSummaryToFile(const std::string& filePath, const std::vector<Event>& e
     outFile << teamA << " vs " << teamB << "\n";
     outFile << "Game stats:\n";
     outFile << "General stats:\n";
-    for (const auto& pair : generalStats) outFile << pair.first << ": " << pair.second << "\n";
+    for (const auto &pair : generalStats)
+        outFile << pair.first << ": " << pair.second << "\n";
     outFile << teamA << " stats:\n";
-    for (const auto& pair : teamAStats) outFile << pair.first << ": " << pair.second << "\n";
+    for (const auto &pair : teamAStats)
+        outFile << pair.first << ": " << pair.second << "\n";
     outFile << teamB << " stats:\n";
-    for (const auto& pair : teamBStats) outFile << pair.first << ": " << pair.second << "\n";
+    for (const auto &pair : teamBStats)
+        outFile << pair.first << ": " << pair.second << "\n";
     outFile << "Game event reports:\n";
-    for (const auto& event : events)
+    for (const auto &event : events)
     {
         outFile << event.get_time() << " - " << event.get_name() << ":\n\n";
         outFile << event.get_description() << "\n\n";
@@ -248,7 +116,7 @@ int main(int argc, char *argv[])
             isConnected = true;
             // Start the reading thread
             SocketReader reader(connectionHandler, &shouldTerminate,
-                                receiptToMessage, channelToSubId);
+                                receiptToMessage, channelToSubId, gameReports);
             socketThread = new std::thread(reader);
 
             // Construct the CONNECT frame exactly as required
@@ -272,11 +140,9 @@ int main(int argc, char *argv[])
                 std::cout << "Not connected." << std::endl;
                 continue;
             }
-            int receiptId = counterRecipt;
-            receiptToMessage[receiptId] = "Logout successful";
+            receiptToMessage[-1] = "Logout successful";
             StompFrame frame("DISCONNECT");
-            frame.addHeader("receipt", std::to_string(receiptId));
-            counterRecipt++;
+            frame.addHeader("receipt", "-1");
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
@@ -284,6 +150,11 @@ int main(int argc, char *argv[])
             }
             else
             {
+                socketThread->join();
+                delete socketThread;
+                socketThread = nullptr;
+                delete connectionHandler;
+                connectionHandler = nullptr;
                 isConnected = false;
             }
         }
