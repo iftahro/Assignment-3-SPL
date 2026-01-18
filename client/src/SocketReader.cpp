@@ -120,25 +120,26 @@ public:
                 {
                     std::cout << receiptToMessage[receiptId] << std::endl;
                     receiptToMessage.erase(receiptId);
-                    if (receiptId == -1)
+                    if (receiptId == 0)
                     {
-                        handler->close();      
+                        handler->close();
                         *shouldTerminate = true;
                     }
                 }
             }
             if (response.command == "MESSAGE")
             {
-                std::string gameName = response.headers["destination"];
-                std::pair<std::string, Event> result = parseEventFrame(response);
-                std::string user = result.first;
-                Event event = result.second;
-                if (!user.empty())
+                std::pair<std::string, Event> parsed = Event::parseEventFrame(response);
+                std::string gameName = parsed.first;
+                Event event = parsed.second;
+                std::string sender = "";
+                if (response.headers.count("user")){sender = response.headers["user"];}
+                if (!sender.empty())
                 {
-                    gameReports[gameName][user].push_back(event);
+                    gameReports[gameName][sender].push_back(event);
                     std::cout << "Received event: " << event.get_name() << std::endl;
                     std::cout << "Game: " << gameName << std::endl;
-                    std::cout << "Sender: " << user << std::endl;
+                    std::cout << "Sender: " << sender << std::endl;
                     std::cout << "Time: " << event.get_time() << std::endl;
                     std::cout << "Description: " << event.get_description() << std::endl;
                 }

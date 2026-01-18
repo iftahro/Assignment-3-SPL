@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include "../include/StompFrame.h"
 
 class Event
 {
@@ -37,6 +38,7 @@ public:
     const std::map<std::string, std::string> &get_team_a_updates() const;
     const std::map<std::string, std::string> &get_team_b_updates() const;
     const std::string &get_discription() const;
+    static std::pair<std::string, Event> parseEventFrame(const StompFrame &frame);
 };
 
 // an object that holds the names of the teams and a vector of events, to be returned by the parseEventsFile function

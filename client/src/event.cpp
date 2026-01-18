@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 #include <sstream>
+#include "../include/StompFrame.h"
 using json = nlohmann::json;
 
 Event::Event(std::string team_a_name, std::string team_b_name, std::string name, int time,
@@ -19,6 +20,20 @@ Event::Event(std::string team_a_name, std::string team_b_name, std::string name,
 
 Event::~Event()
 {
+}
+
+std::pair<std::string, Event> Event::parseEventFrame(const StompFrame &frame)
+{
+    json j = json::parse(frame.getBody());
+
+    std::string team_a_name = j["team a"];
+    std::string team_b_name = j["team b"];
+    std::string game_name = team_a_name + "_" + team_b_name;
+
+    Event event(team_a_name, team_b_name, j["event name"], j["time"],
+                j["general game updates"], j["team a updates"], j["team b updates"], j["description"]);
+
+    return {game_name, event};
 }
 
 const std::string &Event::get_team_a_name() const

@@ -81,6 +81,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         if (subscribers.get(connectionId) == null) sendError("User not subscribed to channel", msg);
         for (ConcurrentHashMap.Entry<Integer, Integer> entry : subscribers.entrySet()) {
             int connectId = entry.getKey();
+            if (connectId == connectionId) {continue;}
             int subId = entry.getValue();
             StompMessage personalizedFrame = new StompMessage("MESSAGE");
             personalizedFrame.addHeader("subscription", String.valueOf(subId));

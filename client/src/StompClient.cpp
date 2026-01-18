@@ -140,9 +140,9 @@ int main(int argc, char *argv[])
                 std::cout << "Not connected." << std::endl;
                 continue;
             }
-            receiptToMessage[-1] = "Logout successful";
+            receiptToMessage[0] = "Logout successful";
             StompFrame frame("DISCONNECT");
-            frame.addHeader("receipt", "-1");
+            frame.addHeader("receipt", "0");
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
@@ -213,60 +213,44 @@ int main(int argc, char *argv[])
         }
         else if (command == "report")
         {
-            if (!isConnected)
-            {
+            if (!isConnected){
                 std::cout << "Please login first" << std::endl;
-                continue;
-            }
+                continue; }
             std::string filePath;
             ss >> filePath;
-            msgData parsedData;
-            try
-            {
+            names_and_events parsedData; 
+            try{
                 parsedData = parseEventsFile(filePath);
             }
-            catch (const std::exception &e)
-            {
+            catch (const std::exception &e){
                 std::cout << "Error parsing file: " << e.what() << std::endl;
                 continue;
             }
             std::string channelName = parsedData.team_a_name + "_" + parsedData.team_b_name;
-            if (channelToSubId.find(channelName) == channelToSubId.end())
-            {
+            if (channelToSubId.find(channelName) == channelToSubId.end()){
+                std::cout << "Error: User is not subscribed to channel " << channelName << std::endl;
                 continue;
             }
-            for (const auto &event : parsedData.events)
+            for (Event &event : parsedData.events)
             {
+                event.setSender(userName);
+                gameReports[channelName][userName].push_back(event);
                 StompFrame frame("SEND");
                 frame.addHeader("destination", "/" + channelName);
-                std::string body = "user: " + username + "\n";
-                body += "team a: " + parsedData.team_a_name + "\n";
-                body += "team b: " + parsedData.team_b_name + "\n";
-                body += "event name: " + event.get_name() + "\n";
-                body += "time: " + std::to_string(event.get_time()) + "\n";
-                body += "general game updates:\n";
-                for (const auto &pair : event.get_game_updates())
-                {
-                    body += pair.first + ": " + pair.second + "\n";
-                }
-                body += "team a updates:\n";
-                for (const auto &pair : event.get_team_a_updates())
-                {
-                    body += pair.first + ": " + pair.second + "\n";
-                }
-                body += "team b updates:\n";
-                for (const auto &pair : event.get_team_b_updates())
-                {
-                    body += pair.first + ": " + pair.second + "\n";
-                }
-                body += "description:\n" + event.get_description() + "\n";
-                frame.setBody(body);
-                if (!connectionHandler->sendFrame(frame.toString()))
-                {
-                    std::cout << "Network Error: Could not send event" << std::endl;
-                    isConnected = false;
-                    break;
-                }
+
+                json j;
+                j["event name"] = event.get_name();
+                j["time"] = event.get_time();
+                j["description"] = event.get_description();
+                j["general game updates"] = event.get_game_updates();
+                j["team a updates"] = event.get_team_a_updates();
+                j["team b updates"] = event.get_team_b_updates();
+
+                j["team a"] = parsedData.team_a_name;
+                j["team b"] = parsedData.team_b_name;
+
+                frame.setBody(j.dump());
+                connectionHandler->sendFrame(frame.toString());
             }
         }
         else if (command == "summary")
