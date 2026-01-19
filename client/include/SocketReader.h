@@ -12,23 +12,22 @@ class SocketReader
 {
 private:
     ConnectionHandler *handler;
+    std::string username;
     volatile bool *shouldTerminate;
     std::map<int, std::string> &receiptToMessage;
     std::map<std::string, int> &channelToSubId;
     std::mutex* reportMutex;
     
-    // רפרנס למפה הראשית (לשמירת הנתונים עבור ה-Summary)
     std::map<std::string, std::map<std::string, std::vector<Event>>> &gameReports;
 
 public:
-    // בנאי: מקבל מצביעים ורפרנסים למשתנים המשותפים ב-main
-    SocketReader(ConnectionHandler *handler, 
+    SocketReader(ConnectionHandler *handler, std::string username,
                  volatile bool *shouldTerminate,
                  std::map<int, std::string> &receipts, 
                  std::map<std::string, int> &subs,
                  std::map<std::string, std::map<std::string, std::vector<Event>>> &reports
                 ,std::mutex* mutex);
 
-    // האופרטור שמאפשר למחלקה לרוץ בתוך thread
     void operator()();
+
 };

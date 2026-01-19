@@ -5,14 +5,13 @@
 #include "../include/ConnectionHandler.h"
 #include "../include/StompFrame.h"
 #include "../include/SocketReader.h"
+#include "../event.h"
+#include <fstream>
+#include "../include/json.hpp"
+using json = nlohmann::json;
 
-// This class will handle the socket reading in a separate thread
 bool eventComparator(const Event &a, const Event &b)
 {
-    if (a.get_before_half_time() && !b.get_before_half_time())
-        return true;
-    if (!a.get_before_half_time() && b.get_before_half_time())
-        return false;
     return a.get_time() < b.get_time();
 }
 
@@ -62,7 +61,7 @@ void writeSummaryToFile(const std::string &filePath, const std::vector<Event> &e
     for (const auto &event : events)
     {
         outFile << event.get_time() << " - " << event.get_name() << ":\n\n";
-        outFile << event.get_description() << "\n\n";
+        outFile << event.get_discription() << "\n\n";
     }
     outFile.close();
     std::cout << "Summary created successfully at " << filePath << std::endl;
@@ -117,7 +116,7 @@ int main(int argc, char *argv[])
             }
             isConnected = true;
             // Start the reading thread
-            SocketReader reader(connectionHandler, &shouldTerminate,
+            SocketReader reader(connectionHandler,username, &shouldTerminate,
                                 receiptToMessage, channelToSubId, gameReports, &reportMutex);
             socketThread = new std::thread(reader);
 
@@ -133,127 +132,6 @@ int main(int argc, char *argv[])
             {
                 std::cout << "Failed to send CONNECT frame" << std::endl;
                 isConnected = false;
-            }
-        }
-        else if (command == "logout")
-        {
-            if (!isConnected)
-            {
-                std::cout << "Not connected." << std::endl;
-                continue;
-            }
-            receiptToMessage[0] = "Logout successful";
-            StompFrame frame("DISCONNECT");
-            frame.addHeader("receipt", "0");
-            if (!connectionHandler->sendFrame(frame.toString()))
-            {
-                std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
-                isConnected = false;
-            }
-            else
-            {
-                socketThread->join();
-                delete socketThread;
-                socketThread = nullptr;
-                delete connectionHandler;
-                connectionHandler = nullptr;
-                isConnected = false;
-            }
-        }
-        else if (command == "exit")
-        {
-            std::string channelName;
-            if (!isConnected)
-            {
-                std::cout << "Please login first" << std::endl;
-                continue;
-            }
-            ss >> channelName;
-            if (channelToSubId.find(channelName) == channelToSubId.end())
-            {
-                continue;
-            }
-            int subId = channelToSubId[channelName];
-            int receiptId = counterRecipt;
-            receiptToMessage[receiptId] = "Exited channel " + channelName;
-            StompFrame frame("UNSUBSCRIBE");
-            frame.addHeader("id", std::to_string(subId));
-            frame.addHeader("receipt", std::to_string(receiptId));
-            counterRecipt++;
-            if (!connectionHandler->sendFrame(frame.toString()))
-            {
-                std::cout << "Network Error: Could not send UNSUBSCRIBE frame to server" << std::endl;
-                isConnected = false;
-            }
-            else
-            {
-                channelToSubId.erase(channelName);
-            }
-        }
-        else if (command == "join")
-        {
-            std::string channelName;
-            if (!isConnected)
-            {
-                std::cout << "Please login first" << std::endl;
-                continue;
-            }
-            ss >> channelName;
-            channelToSubId[channelName] = counterSubId;
-            receiptToMessage[counterRecipt] = "Joined channel " + channelName;
-            StompFrame frame("SUBSCRIBE");
-            frame.addHeader("destination", "/" + channelName);
-            frame.addHeader("id", std::to_string(counterSubId));
-            frame.addHeader("receipt", std::to_string(counterRecipt));
-            counterSubId++;
-            counterRecipt++;
-            if (!connectionHandler->sendFrame(frame.toString()))
-            {
-                std::cout << "Network Error: Could not send SUBSCRIBE frame to server" << std::endl;
-                isConnected = false;
-            }
-        }
-        else if (command == "report")
-        {
-            if (!isConnected){
-                std::cout << "Please login first" << std::endl;
-                continue; }
-            std::string filePath;
-            ss >> filePath;
-            names_and_events parsedData; 
-            try{
-                parsedData = parseEventsFile(filePath);
-            }
-            catch (const std::exception &e){
-                std::cout << "Error parsing file: " << e.what() << std::endl;
-                continue;
-            }
-            std::string channelName = parsedData.team_a_name + "_" + parsedData.team_b_name;
-            if (channelToSubId.find(channelName) == channelToSubId.end()){
-                std::cout << "Error: User is not subscribed to channel " << channelName << std::endl;
-                continue;
-            }
-            for (Event &event : parsedData.events)
-            {
-                event.setSender(username);
-                {std::lock_guard<std::mutex> lock(reportMutex);
-                gameReports[channelName][userName].push_back(event);}
-                StompFrame frame("SEND");
-                frame.addHeader("destination", "/" + channelName);
-
-                json j;
-                j["event name"] = event.get_name();
-                j["time"] = event.get_time();
-                j["description"] = event.get_description();
-                j["general game updates"] = event.get_game_updates();
-                j["team a updates"] = event.get_team_a_updates();
-                j["team b updates"] = event.get_team_b_updates();
-
-                j["team a"] = parsedData.team_a_name;
-                j["team b"] = parsedData.team_b_name;
-
-                frame.setBody(j.dump());
-                connectionHandler->sendFrame(frame.toString());
             }
         }
         else if (command == "summary")
@@ -281,6 +159,115 @@ int main(int argc, char *argv[])
             calculateGameStats(eventsCopy, generalStats, teamAStats, teamBStats);
             writeSummaryToFile(filePath, eventsCopy, generalStats, teamAStats, teamBStats);
         }
+        else if (!isConnected)
+        {
+            std::cout << "Not connected." << std::endl;
+                continue;
+        }
+        else if (command == "logout")
+        {
+            
+            receiptToMessage[0] = "Logout successful";
+            StompFrame frame("DISCONNECT");
+            frame.addHeader("receipt", "0");
+            if (!connectionHandler->sendFrame(frame.toString()))
+            {
+                std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
+                isConnected = false;
+            }
+            else
+            {
+                socketThread->join();
+                delete socketThread;
+                socketThread = nullptr;
+                delete connectionHandler;
+                connectionHandler = nullptr;
+                isConnected = false;
+            }
+        }
+        else if (command == "exit")
+        {
+            std::string channelName;
+            ss >> channelName;
+            if (channelToSubId.find(channelName) == channelToSubId.end())
+            {
+                continue;
+            }
+            int subId = channelToSubId[channelName];
+            receiptToMessage[counterRecipt] = "Exited channel " + channelName;
+            StompFrame frame("UNSUBSCRIBE");
+            frame.addHeader("id", std::to_string(subId));
+            frame.addHeader("receipt", std::to_string(counterRecipt));
+            counterRecipt++;
+            if (!connectionHandler->sendFrame(frame.toString()))
+            {
+                std::cout << "Network Error: Could not send UNSUBSCRIBE frame to server" << std::endl;
+                isConnected = false;
+            }
+            else
+            {
+                //todo dekete
+                channelToSubId.erase(channelName);
+            }
+        }
+        else if (command == "join")
+        {
+            std::string channelName;
+            ss >> channelName;
+            channelToSubId[channelName] = counterSubId;
+            receiptToMessage[counterRecipt] = "Joined channel " + channelName;
+            StompFrame frame("SUBSCRIBE");
+            frame.addHeader("destination", "/" + channelName);
+            frame.addHeader("id", std::to_string(counterSubId));
+            frame.addHeader("receipt", std::to_string(counterRecipt));
+            counterSubId++;
+            counterRecipt++;
+            if (!connectionHandler->sendFrame(frame.toString()))
+            {
+                std::cout << "Network Error: Could not send SUBSCRIBE frame to server" << std::endl;
+                isConnected = false;
+            }
+        }
+        else if (command == "report")
+        {
+            std::string filePath;
+            ss >> filePath;
+            gameEventData parsedData; 
+            try{
+                parsedData = parseEventsFile(filePath);
+            }
+            catch (const std::exception &e){
+                std::cout << "Error parsing file: " << e.what() << std::endl;
+                continue;
+            }
+            std::string channelName = parsedData.team_a_name + "_" + parsedData.team_b_name;
+            if (channelToSubId.find(channelName) == channelToSubId.end()){
+                std::cout << "Error: User is not subscribed to channel " << channelName << std::endl;
+                continue;
+            }
+            for (Event &event : parsedData.events)
+            {
+                {std::lock_guard<std::mutex> lock(reportMutex);
+                gameReports[channelName][username].push_back(event);}
+                StompFrame frame("SEND");
+                frame.addHeader("destination", "/" + channelName);
+
+                json j;
+                j["event name"] = event.get_name();
+                j["time"] = event.get_time();
+                j["description"] = event.get_discription();
+                j["general game updates"] = event.get_game_updates();
+                j["team a updates"] = event.get_team_a_updates();
+                j["team b updates"] = event.get_team_b_updates();
+
+                j["team a"] = parsedData.team_a_name;
+                j["team b"] = parsedData.team_b_name;
+
+                frame.setBody(j.dump());
+                connectionHandler->sendFrame(frame.toString());
+            }
+        }
+        
     }
 
     // Cleanup

@@ -21,19 +21,20 @@ Event::Event(std::string team_a_name, std::string team_b_name, std::string name,
 Event::~Event()
 {
 }
-
-std::pair<std::string, Event> Event::parseEventFrame(const StompFrame &frame)
+std::string Event::get_game_name() const {
+    return team_a_name + "_" + team_b_name;
+}
+Event Event::parseEventFrame(const StompFrame &frame)
 {
     json j = json::parse(frame.getBody());
 
     std::string team_a_name = j["team a"];
     std::string team_b_name = j["team b"];
-    std::string game_name = team_a_name + "_" + team_b_name;
 
     Event event(team_a_name, team_b_name, j["event name"], j["time"],
                 j["general game updates"], j["team a updates"], j["team b updates"], j["description"]);
 
-    return {game_name, event};
+    return event;
 }
 
 const std::string &Event::get_team_a_name() const
@@ -80,7 +81,7 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
 {
 }
 
-names_and_events parseEventsFile(std::string json_path)
+gameEventData parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
     json data = json::parse(f);
