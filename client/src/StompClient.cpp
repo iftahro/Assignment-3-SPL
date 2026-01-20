@@ -4,6 +4,7 @@
 #include <sstream>
 #include "../include/ConnectionHandler.h"
 #include "../include/StompFrame.h"
+#include "../include/StompProtocol.h"
 #include "../include/SocketReader.h"
 #include "../event.h"
 #include <fstream>
@@ -119,7 +120,7 @@ int main(int argc, char *argv[])
                 }
                 continue;
             }
-            std::string hostPort, username, password;
+            std::string hostPort, password;
             ss >> hostPort >> username >> password;
             size_t colonPos = hostPort.find(':');
             std::string host = hostPort.substr(0, colonPos);
@@ -133,10 +134,10 @@ int main(int argc, char *argv[])
                 connectionHandler = nullptr;
                 continue;
             }
-            // Start the reading thread
-            SocketReader reader(connectionHandler,username, &shouldTerminate,
-                                receiptToMessage, channelToSubId, gameReports, &reportMutex,
-                                &isLoggedIn);
+            StompProtocol protocol(connectionHandler, username, &shouldTerminate,
+                       receiptToMessage, channelToSubId, gameReports, &reportMutex,
+                       &isLoggedIn);
+            SocketReader reader(connectionHandler, &shouldTerminate, protocol);
             socketThread = new std::thread(reader);
 
             StompFrame frame("CONNECT");

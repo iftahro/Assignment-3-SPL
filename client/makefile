@@ -6,8 +6,8 @@ all: StompWCIClient
 EchoClient: bin/ConnectionHandler.o bin/echoClient.o
 	g++ -o bin/EchoClient bin/ConnectionHandler.o bin/echoClient.o $(LDFLAGS)
 
-StompWCIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompFrame.o bin/SocketReader.o
-	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompFrame.o bin/SocketReader.o $(LDFLAGS)
+StompWCIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompFrame.o bin/SocketReader.o bin/StompProtocol.o
+	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompFrame.o bin/SocketReader.o bin/StompProtocol.o $(LDFLAGS)
 
 bin/ConnectionHandler.o: src/ConnectionHandler.cpp
 	g++ $(CFLAGS) -o bin/ConnectionHandler.o src/ConnectionHandler.cpp
@@ -26,6 +26,9 @@ bin/StompFrame.o: src/StompFrame.cpp
 
 bin/SocketReader.o: src/SocketReader.cpp
 	g++ $(CFLAGS) -o bin/SocketReader.o src/SocketReader.cpp
+
+bin/StompProtocol.o: src/StompProtocol.cpp
+	g++ $(CFLAGS) -o bin/StompProtocol.o src/StompProtocol.cpp
 	
 .PHONY: clean
 clean:
