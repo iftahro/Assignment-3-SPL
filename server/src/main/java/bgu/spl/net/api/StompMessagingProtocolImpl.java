@@ -44,7 +44,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
             default:
                 return;
         }
-        if (!shouldTerminate) {
+        if (!shouldTerminate) 
+            {
             checkAndSendReceipt(message);
         }
     }

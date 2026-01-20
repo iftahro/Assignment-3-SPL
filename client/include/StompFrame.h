@@ -17,4 +17,9 @@ public:
     std::string toString() const;
 
     static StompFrame fromString(const std::string& rawFrame);
+
+    std::string getBody() const;
+
+    void setBody(std::string body);
+    
 };
