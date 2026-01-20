@@ -99,3 +99,4 @@ client/bin/
 hs_err_pid*
 .DS_Store
 client/.DS_Store
+server/target/
