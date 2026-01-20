@@ -138,7 +138,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
                 errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
             body.append("Client frame:\n-----\n");
             body.append(originalMessage);
-            body.append("\n-----");
+            body.append("-----");
         }
         errorFrame.setBody(body.toString());
         connections.send(connectionId, errorFrame);
