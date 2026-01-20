@@ -1,5 +1,7 @@
 package bgu.spl.net.srv;
 
+import bgu.spl.net.impl.data.Database;
+
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -8,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ConnectionsImpl<T> implements Connections<T> {
     private final AtomicInteger connectionIdCounter = new AtomicInteger(0);
     private final Map<Integer, ConnectionHandler<T>> handlerMap = new ConcurrentHashMap<>();
+    private final Database database = Database.getInstance();
 
     @Override
     public boolean send(int connectionId, T msg) {
@@ -18,7 +21,10 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-
+        ConcurrentHashMap<Integer, String> subscribers = database.getSubscribers(channel);
+        for (int connectId : subscribers.keySet()) {
+            send(connectId, msg);
+        }
     }
 
     @Override
