@@ -18,6 +18,7 @@ private:
     std::map<std::string, int> &channelToSubId;
     std::mutex* reportMutex;
     std::map<std::string, std::map<std::string, std::vector<Event>>> &gameReports;
+    std::atomic<bool> *isLoggedIn;
 
 public:
     SocketReader(ConnectionHandler *handler, std::string username,
@@ -25,8 +26,8 @@ public:
                  std::map<int, std::string> &receipts, 
                  std::map<std::string, int> &subs,
                  std::map<std::string, std::map<std::string, std::vector<Event>>> &reports
-                ,std::mutex* mutex);
+                ,std::mutex* mutex,
+                std::atomic<bool> *isLoggedIn);
 
     void operator()();
-
 };

@@ -12,6 +12,20 @@ using json = nlohmann::json;
 
 bool eventComparator(const Event &a, const Event &b)
 {
+    bool a_before_halftime = false;
+    if (a.get_game_updates().count("before halftime")) {
+        a_before_halftime = (a.get_game_updates().at("before halftime") == "true");
+    }
+    bool b_before_halftime = false;
+    if (b.get_game_updates().count("before halftime")) {
+        b_before_halftime = (b.get_game_updates().at("before halftime") == "true");
+    }
+    if (a_before_halftime && !b_before_halftime) {
+        return true;
+    }
+    if (!a_before_halftime && b_before_halftime) {
+        return false;
+    }
     return a.get_time() < b.get_time();
 }
 
@@ -72,7 +86,7 @@ int main(int argc, char *argv[])
     ConnectionHandler *connectionHandler = nullptr;
     std::thread *socketThread = nullptr;
     volatile bool shouldTerminate = false;
-    bool isConnected = false;
+    
     std::string username = "";
     std::map<std::string, int> channelToSubId;
     std::map<int, std::string> receiptToMessage;
@@ -80,6 +94,8 @@ int main(int argc, char *argv[])
     int counterRecipt = 1;
     std::map<std::string, std::map<std::string, std::vector<Event>>> gameReports;
     std::mutex reportMutex;
+
+    std::atomic<bool> isLoggedIn(false);
 
     while (!shouldTerminate)
     {
@@ -94,18 +110,21 @@ int main(int argc, char *argv[])
         ss >> command;
         if (command == "login")
         {
-            if (isConnected)
+            if (connectionHandler != nullptr)
             {
-                std::cout << "The client is already logged in, log out before trying again" << std::endl;
+                if (isLoggedIn) {
+                    std::cout << "The client is already logged in, log out before trying again" << std::endl;
+                } else {
+                    std::cout << "Login is already in progress..." << std::endl;
+                }
                 continue;
             }
-
             std::string hostPort, username, password;
             ss >> hostPort >> username >> password;
-
             size_t colonPos = hostPort.find(':');
             std::string host = hostPort.substr(0, colonPos);
             short port = (short)stoi(hostPort.substr(colonPos + 1));
+
             connectionHandler = new ConnectionHandler(host, port);
             if (!connectionHandler->connect())
             {
@@ -114,39 +133,42 @@ int main(int argc, char *argv[])
                 connectionHandler = nullptr;
                 continue;
             }
-            isConnected = true;
             // Start the reading thread
             SocketReader reader(connectionHandler,username, &shouldTerminate,
-                                receiptToMessage, channelToSubId, gameReports, &reportMutex);
+                                receiptToMessage, channelToSubId, gameReports, &reportMutex,
+                                &isLoggedIn);
             socketThread = new std::thread(reader);
 
-            // Construct the CONNECT frame exactly as required
             StompFrame frame("CONNECT");
             frame.addHeader("accept-version", "1.2");
             frame.addHeader("host", "stomp.cs.bgu.ac.il");
             frame.addHeader("login", username);
             frame.addHeader("passcode", password);
 
-            // Send the frame (sendFrame adds the null character \0 automatically)
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Failed to send CONNECT frame" << std::endl;
-                isConnected = false;
+                shouldTerminate = true;
             }
+        }
+        else if (!isLoggedIn)
+        {
+            std::cout << "Not connected." << std::endl;
+            continue;
         }
         else if (command == "summary")
         {
             std::string gameName, userName, filePath;
             ss >> gameName >> userName >> filePath;
             std::vector<Event> eventsCopy;
-            {std::lock_guard<std::mutex> lock(reportMutex);
+            std::lock_guard<std::mutex> lock(reportMutex);
             if (gameReports.find(gameName) == gameReports.end() ||
                 gameReports[gameName].find(userName) == gameReports[gameName].end())
             {
                 std::cout << "Error: No reports found for " << gameName << " from user " << userName << std::endl;
                 continue;
             }
-            eventsCopy = gameReports[gameName][userName];}
+            eventsCopy = gameReports[gameName][userName];
             if (eventsCopy.empty())
             {
                 std::cout << "No events to report." << std::endl;
@@ -159,21 +181,15 @@ int main(int argc, char *argv[])
             calculateGameStats(eventsCopy, generalStats, teamAStats, teamBStats);
             writeSummaryToFile(filePath, eventsCopy, generalStats, teamAStats, teamBStats);
         }
-        else if (!isConnected)
-        {
-            std::cout << "Not connected." << std::endl;
-                continue;
-        }
         else if (command == "logout")
         {
-            
             receiptToMessage[0] = "Logout successful";
             StompFrame frame("DISCONNECT");
             frame.addHeader("receipt", "0");
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
-                isConnected = false;
+                isLoggedIn = false;
             }
             else
             {
@@ -182,17 +198,14 @@ int main(int argc, char *argv[])
                 socketThread = nullptr;
                 delete connectionHandler;
                 connectionHandler = nullptr;
-                isConnected = false;
+                isLoggedIn = false;
             }
         }
         else if (command == "exit")
         {
             std::string channelName;
             ss >> channelName;
-            if (channelToSubId.find(channelName) == channelToSubId.end())
-            {
-                continue;
-            }
+            if (channelToSubId.find(channelName) == channelToSubId.end()) continue;
             int subId = channelToSubId[channelName];
             receiptToMessage[counterRecipt] = "Exited channel " + channelName;
             StompFrame frame("UNSUBSCRIBE");
@@ -202,11 +215,10 @@ int main(int argc, char *argv[])
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Network Error: Could not send UNSUBSCRIBE frame to server" << std::endl;
-                isConnected = false;
+                isLoggedIn = false;
             }
             else
             {
-                //todo dekete
                 channelToSubId.erase(channelName);
             }
         }
@@ -225,14 +237,14 @@ int main(int argc, char *argv[])
             if (!connectionHandler->sendFrame(frame.toString()))
             {
                 std::cout << "Network Error: Could not send SUBSCRIBE frame to server" << std::endl;
-                isConnected = false;
+                isLoggedIn = false;
             }
         }
         else if (command == "report")
         {
             std::string filePath;
             ss >> filePath;
-            gameEventData parsedData; 
+            names_and_events parsedData; 
             try{
                 parsedData = parseEventsFile(filePath);
             }
@@ -251,6 +263,7 @@ int main(int argc, char *argv[])
                 gameReports[channelName][username].push_back(event);}
                 StompFrame frame("SEND");
                 frame.addHeader("destination", "/" + channelName);
+                frame.addHeader("filename", filePath);
 
                 json j;
                 j["event name"] = event.get_name();
@@ -266,18 +279,16 @@ int main(int argc, char *argv[])
                 connectionHandler->sendFrame(frame.toString());
             }
         }
-        
     }
-    // Cleanup
+
     if (socketThread)
     {
-        socketThread->join(); // Wait for thread to finish his work
+        socketThread->join();
         delete socketThread;
     }
     if (connectionHandler)
     {
         delete connectionHandler;
     }
-
     return 0;
 }

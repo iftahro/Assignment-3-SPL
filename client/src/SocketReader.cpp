@@ -10,10 +10,11 @@
 
 SocketReader::SocketReader(ConnectionHandler *handler,std::string username, volatile bool *shouldTerminate,
                            std::map<int, std::string> &receipts, std::map<std::string, int> &subs,
-                           std::map<std::string, std::map<std::string, std::vector<Event>>> &reports, std::mutex *mutex)
+                           std::map<std::string, std::map<std::string, std::vector<Event>>> &reports, std::mutex *mutex,
+                            std::atomic<bool> *isLoggedIn)
     : handler(handler),username(username), shouldTerminate(shouldTerminate),
       receiptToMessage(receipts), channelToSubId(subs),
-      gameReports(reports), reportMutex(mutex) {}
+      gameReports(reports), reportMutex(mutex), isLoggedIn(isLoggedIn) {}
 
 void SocketReader::operator()()
 {
@@ -24,29 +25,36 @@ void SocketReader::operator()()
         {
             std::cout << "Disconnected from server." << std::endl;
             *shouldTerminate = true;
+            *isLoggedIn = false;
             break;
         }
-
         StompFrame response = StompFrame::fromString(answer);
-        if (response.command == "ERROR")
-            std::cout << response.body << std::endl;
-        if (response.command == "CONNECTED")
+
+        if (response.command == "ERROR") {
+            std::cout << response.toString() << std::endl;
+            *isLoggedIn = false;
+            *shouldTerminate = true;
+            handler->close();
+        }
+        else if (response.command == "CONNECTED") {
             std::cout << "Login successful" << std::endl;
-        if (response.command == "RECEIPT")
+            *isLoggedIn = true;
+        }
+        else if (response.command == "RECEIPT")
         {
             int receiptId = std::stoi(response.headers["receipt-id"]);
             if (receiptToMessage.count(receiptId))
             {
                 std::cout << receiptToMessage[receiptId] << std::endl;
                 receiptToMessage.erase(receiptId);
-                if (receiptId == 0)
+                if (receiptId == 0) // Logout receipt
                 {
                     handler->close();
                     *shouldTerminate = true;
                 }
             }
         }
-        if (response.command == "MESSAGE")
+        else if (response.command == "MESSAGE")
         {
             Event event = Event::parseEventFrame(response);
             std::string gameName = event.get_game_name();
@@ -57,9 +65,7 @@ void SocketReader::operator()()
             }
             if (!sender.empty())
             {
-                if (sender == username)
-                {continue;}
-                {
+                if (sender != username) {
                     std::lock_guard<std::mutex> lock(*reportMutex);
                     gameReports[gameName][sender].push_back(event);
                 }
