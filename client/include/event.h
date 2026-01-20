@@ -43,11 +43,11 @@ public:
 };
 
 // an object that holds the names of the teams and a vector of events, to be returned by the parseEventsFile function
-struct gameEventData {
+struct names_and_events {
     std::string team_a_name;
     std::string team_b_name;
     std::vector<Event> events;
 };
 
-// function that parses json file and returns a gameEventData object
-gameEventData parseEventsFile(std::string json_path);
+// function that parses json file and returns a names_and_events object
+names_and_events parseEventsFile(std::string json_path);

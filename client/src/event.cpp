@@ -81,7 +81,7 @@ Event::Event(const std::string &frame_body) : team_a_name(""), team_b_name(""), 
 {
 }
 
-gameEventData parseEventsFile(std::string json_path)
+names_and_events parseEventsFile(std::string json_path)
 {
     std::ifstream f(json_path);
     json data = json::parse(f);
@@ -125,7 +125,7 @@ gameEventData parseEventsFile(std::string json_path)
         
         events.push_back(Event(team_a_name, team_b_name, name, time, game_updates, team_a_updates, team_b_updates, description));
     }
-    gameEventData events_and_names{team_a_name, team_b_name, events};
+    names_and_events events_and_names{team_a_name, team_b_name, events};
 
     return events_and_names;
 }
