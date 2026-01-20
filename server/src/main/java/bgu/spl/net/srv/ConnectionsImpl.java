@@ -21,7 +21,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void send(String channel, T msg) {
-        ConcurrentHashMap<Integer, String> subscribers = database.getSubscribers(channel);
+        ConcurrentHashMap<Integer, Integer> subscribers = database.getSubscribers(channel);
         for (int connectId : subscribers.keySet()) {
             send(connectId, msg);
         }
