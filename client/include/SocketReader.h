@@ -17,7 +17,6 @@ private:
     std::map<int, std::string> &receiptToMessage;
     std::map<std::string, int> &channelToSubId;
     std::mutex* reportMutex;
-    
     std::map<std::string, std::map<std::string, std::vector<Event>>> &gameReports;
 
 public:

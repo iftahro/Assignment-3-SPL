@@ -259,7 +259,6 @@ int main(int argc, char *argv[])
                 j["general game updates"] = event.get_game_updates();
                 j["team a updates"] = event.get_team_a_updates();
                 j["team b updates"] = event.get_team_b_updates();
-
                 j["team a"] = parsedData.team_a_name;
                 j["team b"] = parsedData.team_b_name;
 
@@ -269,11 +268,10 @@ int main(int argc, char *argv[])
         }
         
     }
-
     // Cleanup
     if (socketThread)
     {
-        socketThread->join(); // Wait for thread to finish
+        socketThread->join(); // Wait for thread to finish his work
         delete socketThread;
     }
     if (connectionHandler)

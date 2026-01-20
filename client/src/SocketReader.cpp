@@ -57,7 +57,8 @@ void SocketReader::operator()()
             }
             if (!sender.empty())
             {
-                if (sender == username){continue;}
+                if (sender == username)
+                {continue;}
                 {
                     std::lock_guard<std::mutex> lock(*reportMutex);
                     gameReports[gameName][sender].push_back(event);

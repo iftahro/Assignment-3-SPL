@@ -125,7 +125,7 @@ gameEventData parseEventsFile(std::string json_path)
         
         events.push_back(Event(team_a_name, team_b_name, name, time, game_updates, team_a_updates, team_b_updates, description));
     }
-    names_and_events events_and_names{team_a_name, team_b_name, events};
+    gameEventData events_and_names{team_a_name, team_b_name, events};
 
     return events_and_names;
 }

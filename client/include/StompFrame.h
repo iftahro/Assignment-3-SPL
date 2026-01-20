@@ -21,4 +21,5 @@ public:
     std::string getBody() const;
 
     void setBody(std::string body);
+    
 };

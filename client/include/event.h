@@ -49,5 +49,5 @@ struct gameEventData {
     std::vector<Event> events;
 };
 
-// function that parses the json file and returns a gameEventData object
+// function that parses json file and returns a gameEventData object
 gameEventData parseEventsFile(std::string json_path);

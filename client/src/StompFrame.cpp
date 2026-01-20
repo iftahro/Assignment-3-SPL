@@ -56,8 +56,7 @@ StompFrame StompFrame::fromString(const std::string &rawFrame)
         }
     }
     std::string bodyAccumulator;
-    while (std::getline(frame_str, line))
-    {
+    while (std::getline(frame_str, line)){
         bodyAccumulator += line + "\n";
     }
 
