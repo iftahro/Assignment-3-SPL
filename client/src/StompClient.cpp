@@ -162,14 +162,14 @@ int main(int argc, char *argv[])
             std::string gameName, userName, filePath;
             ss >> gameName >> userName >> filePath;
             std::vector<Event> eventsCopy;
-            std::lock_guard<std::mutex> lock(reportMutex);
+            {std::lock_guard<std::mutex> lock(reportMutex);
             if (gameReports.find(gameName) == gameReports.end() ||
                 gameReports[gameName].find(userName) == gameReports[gameName].end())
             {
                 std::cout << "Error: No reports found for " << gameName << " from user " << userName << std::endl;
                 continue;
             }
-            eventsCopy = gameReports[gameName][userName];
+            eventsCopy = gameReports[gameName][userName];}
             if (eventsCopy.empty())
             {
                 std::cout << "No events to report." << std::endl;

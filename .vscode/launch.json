@@ -8,6 +8,7 @@
             "type": "java",
             "name": "StompServer",
             "request": "launch",
+            "args": ["3000", "tpc"],
             "mainClass": "bgu.spl.net.impl.stomp.StompServer",
             "projectName": "server"
         },
