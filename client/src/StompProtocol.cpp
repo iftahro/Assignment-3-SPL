@@ -33,6 +33,7 @@ void StompProtocol::process(StompFrame &response)
             {
                 handler->close();
                 *shouldTerminate = true;
+                *isLoggedIn = false;
             }
         }
     }
