@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 
     std::atomic<bool> isLoggedIn(false);
 
-    while (!shouldTerminate)
+    while (true)
     {
         const short bufsize = 1024;
         char buf[bufsize];
@@ -111,15 +111,20 @@ int main(int argc, char *argv[])
         ss >> command;
         if (command == "login")
         {
-            if (connectionHandler != nullptr)
-            {
-                if (isLoggedIn) {
-                    std::cout << "The client is already logged in, log out before trying again" << std::endl;
-                } else {
-                    std::cout << "Login is already in progress..." << std::endl;
-                }
+            if (isLoggedIn) {
+                std::cout << "The client is already logged in, log out before trying again" << std::endl;
                 continue;
             }
+            if (socketThread) {
+                shouldTerminate = true;
+                if (connectionHandler) connectionHandler->close(); 
+                socketThread->join();
+                delete socketThread;
+                socketThread = nullptr;
+                delete connectionHandler;
+                connectionHandler = nullptr;
+            }
+            shouldTerminate = false;
             std::string hostPort, password;
             ss >> hostPort >> username >> password;
             size_t colonPos = hostPort.find(':');
@@ -191,15 +196,7 @@ int main(int argc, char *argv[])
             {
                 std::cout << "Network Error: Could not send DISCONNECT frame" << std::endl;
                 isLoggedIn = false;
-            }
-            else
-            {
-                socketThread->join();
-                delete socketThread;
-                socketThread = nullptr;
-                delete connectionHandler;
-                connectionHandler = nullptr;
-                isLoggedIn = false;
+                shouldTerminate = true;
             }
         }
         else if (command == "exit")
@@ -280,16 +277,6 @@ int main(int argc, char *argv[])
                 connectionHandler->sendFrame(frame.toString());
             }
         }
-    }
-
-    if (socketThread)
-    {
-        socketThread->join();
-        delete socketThread;
-    }
-    if (connectionHandler)
-    {
-        delete connectionHandler;
     }
     return 0;
 }
