@@ -50,7 +50,7 @@ public abstract class BaseServer<T> implements Server<T> {
                 execute(handler);
             }
         } catch (IOException ex) {
-            // todo -
+            ex.printStackTrace();
         }
 
         System.out.println("server closed!!!");

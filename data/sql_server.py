@@ -13,26 +13,73 @@ import sys
 import threading
 
 import sqlite3
-from dataclasses import dataclass
-from typing import Optional
+import atexit
 
 
 SERVER_NAME = "STOMP_PYTHON_SQL_SERVER"  # DO NOT CHANGE!
 DB_FILE = "stomp_server.db"              # DO NOT CHANGE!
 
-# todo - check if classes necessary
-@dataclass
-class User:
-    username: str
-    password: str
-    registration_date: Optional[str] = None
 
-@dataclass
-class LoginHistory:
-    username: str
-    id: Optional[int] = None
-    login_time: Optional[str] = None
-    logout_time: Optional[str] = None
+class Repository:
+    def __init__(self):
+        self._conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+        self._cursor = self._conn.cursor()
+        self._cursor.execute("PRAGMA foreign_keys = ON;")
+    
+    def close(self):
+        self._conn.close()
+    
+    def create_tables(self):
+        self._cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL,
+                registration_date DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        self._cursor.execute("""
+            CREATE TABLE IF NOT EXISTS login_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                logout_time DATETIME,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            );
+        """)
+
+        self._cursor.execute("""
+            CREATE TABLE IF NOT EXISTS file_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                upload_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                game_channel TEXT,
+                FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
+            );
+        """)
+        
+        self._conn.commit()
+        print(f"[{SERVER_NAME}] Database initialized and tables created.")
+ 
+    def execute_command(self, script):
+        try:
+            self._cursor.execute(script)
+            self._conn.commit()
+            return "done"
+        except Exception as e:
+            return f"Error: {e}"
+ 
+    def execute_query(self, query):
+        try:
+            self._cursor.execute(query)
+            rows = self._cursor.fetchall()
+            return "SUCCESS|" + "|".join([str(row) for row in rows])
+        except Exception as e:
+            return f"Error: {e}"
+
+repo = Repository()
+atexit.register(repo.close)
 
 
 def recv_null_terminated(sock: socket.socket) -> str:
@@ -47,62 +94,6 @@ def recv_null_terminated(sock: socket.socket) -> str:
             return msg.decode("utf-8", errors="replace")
 
 
-def init_database():
-    """
-    Initializes the SQLite database with User and LoginHistory tables.
-    """
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA foreign_keys = ON;")
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
-                    password TEXT NOT NULL,
-                    registration_date DATETIME DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS login_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL,
-                    login_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    logout_time DATETIME,
-                    FOREIGN KEY(username) REFERENCES users(username) ON DELETE CASCADE
-                );
-            """)
-            
-            conn.commit()
-            print(f"[{SERVER_NAME}] Database initialized with ID in login_history.")
-    except sqlite3.Error as e:
-        print(f"[{SERVER_NAME}] DB Error: {e}")
-
-
-def execute_sql_command(sql_command: str) -> str:
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA foreign_keys = ON;")
-            cursor.execute(sql_command)
-            conn.commit()
-            return "done"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
-def execute_sql_query(sql_query: str) -> str:
-    try:
-        with sqlite3.connect(DB_FILE) as conn:
-            cursor = conn.cursor()
-            cursor.execute(sql_query)
-            rows = cursor.fetchall()
-            return str(rows) # You can format this more nicely later
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
 def handle_client(client_socket: socket.socket, addr):
     print(f"[{SERVER_NAME}] Client connected from {addr}")
 
@@ -112,12 +103,12 @@ def handle_client(client_socket: socket.socket, addr):
             if message == "":
                 break
 
-            print(f"[{SERVER_NAME}] Received:")
-            print(message)
+            print(f"[{SERVER_NAME}] Received SQL: {message}")
+            
             if message.strip().upper().startswith("SELECT"):
-                response = execute_sql_query(message)
+                response = repo.execute_query(message)
             else:
-                response = execute_sql_command(message)
+                response = repo.execute_command(message)
 
             client_socket.sendall((response + "\0").encode("utf-8"))
 
@@ -132,6 +123,8 @@ def handle_client(client_socket: socket.socket, addr):
 
 
 def start_server(host="127.0.0.1", port=7778):
+    repo.create_tables()
+    
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -160,7 +153,6 @@ def start_server(host="127.0.0.1", port=7778):
 
 
 if __name__ == "__main__":
-    init_database()
     port = 7778
     if len(sys.argv) > 1:
         raw_port = sys.argv[1].strip()

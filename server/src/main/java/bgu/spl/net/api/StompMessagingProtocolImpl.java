@@ -80,12 +80,16 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         ConcurrentHashMap<Integer, Integer> subscribers = database.getSubscribers(destination);
         if (subscribers == null) sendError("Channel does not exists", msg);
         if (subscribers.get(connectionId) == null) sendError("User not subscribed to channel", msg);
+        String username = database.getUser(connectionId).name;
+        database.trackFileUpload(username, msg.getHeader("filename"), destination);
+
         for (ConcurrentHashMap.Entry<Integer, Integer> entry : subscribers.entrySet()) {
             int connectId = entry.getKey();
             int subId = entry.getValue();
             StompMessage personalizedFrame = new StompMessage("MESSAGE");
             personalizedFrame.addHeader("subscription", String.valueOf(subId));
             personalizedFrame.addHeader("destination", destination);
+            personalizedFrame.addHeader("sender", username);
             String uniqueID = UUID.randomUUID().toString();
             personalizedFrame.addHeader("message-id", "msg-" + uniqueID);
             personalizedFrame.setBody(msg.getBody());
@@ -132,7 +136,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         if (originalMessage != null) {
             if (originalMessage.getHeader("receipt") != null)
                 errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
-            body.append("Input frame:\n-----\n");
+            body.append("Client frame:\n-----\n\n");
             body.append(originalMessage);
             body.append("-----");
         }

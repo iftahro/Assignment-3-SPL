@@ -53,6 +53,10 @@ public class Database {
 		User user = connectionsIdMap.get(connectionId);
 		return user != null && user.isLoggedIn();
 	}
+
+	public User getUser(int connectionId) {
+		return connectionsIdMap.get(connectionId);
+	}
 	/**
 	 * Execute SQL query and return result
 	 * @param sql SQL query string
