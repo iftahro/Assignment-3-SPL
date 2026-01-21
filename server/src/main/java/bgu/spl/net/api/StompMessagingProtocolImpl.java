@@ -136,7 +136,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompM
         if (originalMessage != null) {
             if (originalMessage.getHeader("receipt") != null)
                 errorFrame.addHeader("receipt-id", originalMessage.getHeader("receipt"));
-            body.append("Client frame:\n-----\n");
+            body.append("Client frame:\n-----\n\n");
             body.append(originalMessage);
             body.append("-----");
         }

@@ -41,9 +41,9 @@ void StompProtocol::process(StompFrame &response)
         Event event = Event::parseEventFrame(response);
         std::string gameName = event.get_game_name();
         std::string sender = "";
-        if (response.headers.count("user"))
+        if (response.headers.count("sender"))
         {
-            sender = response.headers["user"];
+            sender = response.headers["sender"];
         }
         if (!sender.empty())
         {
@@ -51,11 +51,6 @@ void StompProtocol::process(StompFrame &response)
                 std::lock_guard<std::mutex> lock(*reportMutex);
                 gameReports[gameName][sender].push_back(event);
             }
-            std::cout << "Received event: " << event.get_name() << std::endl;
-            std::cout << "Game: " << gameName << std::endl;
-            std::cout << "Sender: " << sender << std::endl;
-            std::cout << "Time: " << event.get_time() << std::endl;
-            std::cout << "Description: " << event.get_discription() << std::endl;
         }
     }
 }
